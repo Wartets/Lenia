@@ -53,6 +53,12 @@ private:
     bool         m_curveCtrl2Set{false};
     UICallbacks  m_callbacks;
 
+    bool         m_isPanning{false};
+    double       m_panStartMouseX{0.0};
+    double       m_panStartMouseY{0.0};
+    float        m_panStartX{0.0f};
+    float        m_panStartY{0.0f};
+
     bool initWindow(int width, int height, const std::string& title);
     bool initGL();
     void setupCallbacks();
@@ -62,6 +68,8 @@ private:
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+    static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+    static void cursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 };
 
 }

@@ -151,6 +151,7 @@ public:
     void loadCustomColormaps(const std::string& dir) { m_renderer.loadCustomColormaps(dir); }
     int customColormapCount() const { return m_renderer.customColormapCount(); }
     const std::vector<std::string>& customColormapNames() const { return m_renderer.customColormapNames(); }
+    const std::vector<ColormapData>& customColormapData() const { return m_renderer.customColormapData(); }
 
 private:
     SimulationState  m_state;

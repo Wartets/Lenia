@@ -588,7 +588,7 @@ static void leniaColor(float t, float& r, float& g, float& b) {
 }
 
 void UIOverlay::drawColorbar(const LeniaParams& params) {
-    if (params.numChannels > 1) {
+    if (params.numChannels > 1 && !params.useColormapForMultichannel) {
         float barH = 18.0f;
         ImVec2 pos = ImGui::GetCursorScreenPos();
         float totalW = ImGui::GetContentRegionAvail().x;
@@ -630,6 +630,13 @@ void UIOverlay::drawColorbar(const LeniaParams& params) {
 
     constexpr int STEPS = 128;
     float stepW = totalW / STEPS;
+    
+    bool isCustomColormap = (params.colormapMode >= 8);
+    int customIdx = params.colormapMode - 8;
+    bool hasCustomData = isCustomColormap && customIdx >= 0 && 
+                         customIdx < static_cast<int>(m_customColormapData.size()) &&
+                         !m_customColormapData[customIdx].empty();
+    
     for (int i = 0; i < STEPS; ++i) {
         float raw = static_cast<float>(i) / (STEPS - 1);
 
@@ -641,15 +648,27 @@ void UIOverlay::drawColorbar(const LeniaParams& params) {
         t = std::clamp(t, 0.0f, 1.0f);
 
         float cr, cg, cb;
-        switch (params.colormapMode) {
-            case 1: viridisColor(t, cr, cg, cb); break;
-            case 2: magmaColor(t, cr, cg, cb); break;
-            case 3: infernoColor(t, cr, cg, cb); break;
-            case 4: plasmaColor(t, cr, cg, cb); break;
-            case 5: cr = cg = cb = t; break;
-            case 6: cr = cg = cb = 1.0f - t; break;
-            case 7: jetColor(t, cr, cg, cb); break;
-            default: leniaColor(t, cr, cg, cb); break;
+        
+        if (hasCustomData) {
+            const auto& colors = m_customColormapData[customIdx];
+            float fIdx = t * (colors.size() - 1);
+            int idx0 = static_cast<int>(fIdx);
+            int idx1 = std::min(idx0 + 1, static_cast<int>(colors.size()) - 1);
+            float frac = fIdx - idx0;
+            cr = colors[idx0][0] * (1.0f - frac) + colors[idx1][0] * frac;
+            cg = colors[idx0][1] * (1.0f - frac) + colors[idx1][1] * frac;
+            cb = colors[idx0][2] * (1.0f - frac) + colors[idx1][2] * frac;
+        } else {
+            switch (params.colormapMode) {
+                case 1: viridisColor(t, cr, cg, cb); break;
+                case 2: magmaColor(t, cr, cg, cb); break;
+                case 3: infernoColor(t, cr, cg, cb); break;
+                case 4: plasmaColor(t, cr, cg, cb); break;
+                case 5: cr = cg = cb = t; break;
+                case 6: cr = cg = cb = 1.0f - t; break;
+                case 7: jetColor(t, cr, cg, cb); break;
+                default: leniaColor(t, cr, cg, cb); break;
+            }
         }
 
         if (params.cmapHueShift != 0.0f || params.cmapSaturation != 1.0f) {
@@ -1311,6 +1330,104 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
             ImGui::Combo("Outside Display##dispedge", &params.displayEdgeMode, displayEdgeModes, IM_ARRAYSIZE(displayEdgeModes));
             Tooltip("How to display areas outside the grid:\n- Tiled: Repeats based on edge mode\n- Background: Shows background color\n- Checker: Shows a checker pattern");
         }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        
+        if (ImGui::CollapsingHeader("Infinite World Mode##infworld")) {
+            ImGui::Checkbox("Enable Infinite World##infEnable", &params.infiniteWorldMode);
+            Tooltip("Enable exploration of an infinite procedural world.\nUse mouse drag (middle-click or Ctrl+right-click) to pan.\nEdge conditions become periodic (wrapping).");
+
+            if (params.infiniteWorldMode) {
+                params.edgeModeX = 0;
+                params.edgeModeY = 0;
+                
+                ImGui::Spacing();
+                
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "World Settings:");
+                
+                const char* chunkSizes[] = {"64x64", "128x128", "256x256", "512x512"};
+                int chunkIdx = 0;
+                if (params.chunkSize == 128) chunkIdx = 1;
+                else if (params.chunkSize == 256) chunkIdx = 2;
+                else if (params.chunkSize == 512) chunkIdx = 3;
+                if (ImGui::Combo("Chunk Size##chunkSz", &chunkIdx, chunkSizes, 4)) {
+                    int sizes[] = {64, 128, 256, 512};
+                    params.chunkSize = sizes[chunkIdx];
+                }
+                Tooltip("Size of each world chunk in cells.");
+
+                SliderIntWithInput("Load Radius##loadRad", &params.loadedChunksRadius, 1, 5);
+                Tooltip("Number of chunks to keep loaded around the view center.");
+
+                SliderIntWithInput("Max Chunks##maxCh", &params.maxLoadedChunks, 9, 81);
+                Tooltip("Maximum number of chunks to keep in memory.");
+
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "Navigation:");
+                
+                ImGui::Text("Chunk Position: (%d, %d)", params.viewChunkX, params.viewChunkY);
+                ImGui::Text("World Offset: (%.2f, %.2f)", params.panX, params.panY);
+                
+                float navBtnW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2) / 3.0f;
+                
+                ImGui::Dummy(ImVec2(navBtnW, 0)); ImGui::SameLine();
+                if (ImGui::Button("N##navN", ImVec2(navBtnW, 24))) {
+                    params.viewChunkY++;
+                    params.panY = 0.0f;
+                }
+                ImGui::SameLine(); ImGui::Dummy(ImVec2(navBtnW, 0));
+                
+                if (ImGui::Button("W##navW", ImVec2(navBtnW, 24))) {
+                    params.viewChunkX--;
+                    params.panX = 0.0f;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Home##navHome", ImVec2(navBtnW, 24))) {
+                    params.viewChunkX = 0;
+                    params.viewChunkY = 0;
+                    params.panX = 0.0f;
+                    params.panY = 0.0f;
+                    params.zoom = 1.0f;
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("E##navE", ImVec2(navBtnW, 24))) {
+                    params.viewChunkX++;
+                    params.panX = 0.0f;
+                }
+                
+                ImGui::Dummy(ImVec2(navBtnW, 0)); ImGui::SameLine();
+                if (ImGui::Button("S##navS", ImVec2(navBtnW, 24))) {
+                    params.viewChunkY--;
+                    params.panY = 0.0f;
+                }
+                
+                Tooltip("Navigate between chunks. Use mouse drag to pan within a chunk.");
+                
+                SliderFloatWithInput("Explore Speed##explSpd", &params.worldExploreSpeed, 0.1f, 5.0f, "%.1fx");
+                Tooltip("Speed multiplier for keyboard navigation.");
+
+                ImGui::Checkbox("Auto-Load Chunks##autoLoad", &params.autoLoadChunks);
+                Tooltip("Automatically load new chunks as you explore.");
+
+                ImGui::Spacing();
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "Display Options:");
+                
+                ImGui::Checkbox("Show Chunk Grid##showChGrid", &params.chunkBoundaryVisible);
+                Tooltip("Display borders between chunks.");
+
+                SliderFloatWithInput("Edge Fade##edgeFade", &params.chunkFadeDistance, 0.0f, 4.0f, "%.1f");
+                Tooltip("Fade at world edges (0 = no fade).");
+
+                const char* persistence[] = {"None (Clear)", "Preserve State", "Seed-Based"};
+                ImGui::Combo("Persistence##persist", &params.chunkPersistence, persistence, 3);
+                Tooltip("How chunk state is handled:\n- None: Chunks reset when unloaded\n- Preserve: Keeps state in memory\n- Seed-Based: Regenerates from seed");
+                
+                ImGui::Spacing();
+                ImGui::TextDisabled("Tip: Middle-click or Ctrl+Right-click to pan");
+                ImGui::TextDisabled("Scroll wheel to zoom");
+            }
+        }
     }
     popSectionColor();
 
@@ -1459,11 +1576,11 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                 }
             }
 
-            if (ImGui::CollapsingHeader("Spacing")) {
-                ImGui::SliderFloat("Spacing", &params.brushSpacing, 0.1f, 5.0f, "%.1f");
+            if (ImGui::CollapsingHeader("Stroke Spacing##brushSpacingHeader")) {
+                ImGui::SliderFloat("Brush Spacing##brushSpacingSlider", &params.brushSpacing, 0.1f, 5.0f, "%.1f");
                 Tooltip("Distance between stroke applications when dragging.");
 
-                ImGui::Checkbox("Smooth Interpolation", &params.brushSmooth);
+                ImGui::Checkbox("Smooth Interpolation##brushSmooth", &params.brushSmooth);
                 Tooltip("Interpolate positions when moving quickly.");
             }
         }
@@ -1593,20 +1710,20 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         if (params.placementMode >= 9) {
             ImGui::Checkbox("Random Flip", &params.placementRandomFlip);
         } else {
-            ImGui::Checkbox("Flip Horizontal", &params.placementFlipH);
+            ImGui::Checkbox("Flip Horizontal##placeFlipH", &params.placementFlipH);
             ImGui::SameLine();
-            ImGui::Checkbox("Flip Vertical", &params.placementFlipV);
+            ImGui::Checkbox("Flip Vertical##placeFlipV", &params.placementFlipV);
         }
 
         if (params.placementCount > 1 && params.placementMode < 9) {
-            SliderFloatWithInput("Spacing", &params.placementSpacing, 0.01f, 0.5f, "%.3f");
+            SliderFloatWithInput("Place Spacing##placeSpacing", &params.placementSpacing, 0.01f, 0.5f, "%.3f");
         }
 
         if (params.placementMode == static_cast<int>(PlacementMode::Scatter)) {
-            SliderIntWithInput("Min Separation", &params.placementMinSeparation, 0, 100);
+            SliderIntWithInput("Min Separation##minSep", &params.placementMinSeparation, 0, 100);
         }
 
-        ImGui::Checkbox("Clear Grid First", &params.placementClearFirst);
+        ImGui::Checkbox("Clear Grid First##clearFirst", &params.placementClearFirst);
 
         ImGui::Spacing();
         if (ImGui::Button("Apply Placement", ImVec2(-1, 28))) {
@@ -1977,6 +2094,31 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
 
         drawColorbar(params);
 
+        if (params.numChannels > 1) {
+            ImGui::Separator();
+            ImGui::Checkbox("Use Colormap for Multichannel##useCmapMC", &params.useColormapForMultichannel);
+            Tooltip("Convert RGB channels to a single luminance value and apply the colormap.");
+            
+            if (params.useColormapForMultichannel) {
+                const char* blendModes[] = {"Luminance (Weighted)", "Average", "Max Channel", "Min Channel", "Red Only", "Green Only", "Blue Only"};
+                ImGui::Combo("Blend Mode##mcBlend", &params.multiChannelBlend, blendModes, 7);
+                Tooltip("How to combine RGB channels into a single value for colormap:\n- Luminance: Standard perceptual weighting\n- Average: Equal weights\n- Max/Min: Brightest/darkest channel\n- Single: Use one channel only");
+                
+                if (params.multiChannelBlend == 0) {
+                    ImGui::Text("Channel Weights:");
+                    ImGui::SliderFloat("R Weight##wR", &params.channelWeightR, 0.0f, 2.0f, "%.2f");
+                    ImGui::SliderFloat("G Weight##wG", &params.channelWeightG, 0.0f, 2.0f, "%.2f");
+                    ImGui::SliderFloat("B Weight##wB", &params.channelWeightB, 0.0f, 2.0f, "%.2f");
+                    Tooltip("Custom weights for luminance calculation. Standard is R=0.299, G=0.587, B=0.114");
+                    if (ImGui::Button("Reset Weights##resetW")) {
+                        params.channelWeightR = 0.299f;
+                        params.channelWeightG = 0.587f;
+                        params.channelWeightB = 0.114f;
+                    }
+                }
+            }
+        }
+
         ImGui::Separator();
         SliderFloatWithInput("Zoom (+/-)", &params.zoom, 0.1f, 20.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.1f, 20.0f, r, 1, nullptr, 0); }
@@ -2099,10 +2241,25 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         Tooltip("Draw lines at the edges of the simulation grid.");
         if (params.showBoundary) {
             float bc[3] = {params.boundaryR, params.boundaryG, params.boundaryB};
-            if (ImGui::ColorEdit3("Boundary Color", bc)) {
+            if (ImGui::ColorEdit3("Boundary Color##bcolor", bc)) {
                 params.boundaryR = bc[0]; params.boundaryG = bc[1]; params.boundaryB = bc[2];
             }
-            SliderFloatWithInput("Boundary Opacity", &params.boundaryOpacity, 0.0f, 1.0f, "%.2f");
+            SliderFloatWithInput("Boundary Opacity##bopacity", &params.boundaryOpacity, 0.0f, 1.0f, "%.2f");
+            
+            const char* boundaryStyles[] = {"Solid", "Dashed", "Dotted", "Double", "Glow"};
+            ImGui::Combo("Boundary Style##bstyle", &params.boundaryStyle, boundaryStyles, 5);
+            Tooltip("Style of the boundary lines.");
+            
+            SliderFloatWithInput("Boundary Width##bwidth", &params.boundaryThickness, 0.5f, 10.0f, "%.1f");
+            Tooltip("Thickness of boundary lines.");
+            
+            if (params.boundaryStyle == 1 || params.boundaryStyle == 2) {
+                SliderFloatWithInput("Dash Length##bdash", &params.boundaryDashLength, 2.0f, 30.0f, "%.0f");
+                Tooltip("Length of dashes/dots.");
+            }
+            
+            ImGui::Checkbox("Animate Boundary##banim", &params.boundaryAnimate);
+            Tooltip("Animate the boundary with a marching ants effect.");
         }
 
         float bg[3] = {params.bgR, params.bgG, params.bgB};

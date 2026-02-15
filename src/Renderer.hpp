@@ -5,8 +5,13 @@
 #include "UIOverlay.hpp"
 #include <string>
 #include <vector>
+#include <array>
 
 namespace lenia {
+
+struct ColormapData {
+    std::vector<std::array<float, 4>> colors;
+};
 
 class Renderer {
 public:
@@ -21,6 +26,7 @@ public:
     void loadCustomColormaps(const std::string& colormapDir);
     int customColormapCount() const { return static_cast<int>(m_customColormapNames.size()); }
     const std::vector<std::string>& customColormapNames() const { return m_customColormapNames; }
+    const std::vector<ColormapData>& customColormapData() const { return m_customColormapData; }
 
     Shader& displayShader() { return m_displayShader; }
 
@@ -31,10 +37,11 @@ private:
     GLuint m_displaySampler{0};
     std::vector<GLuint> m_customColormapTextures;
     std::vector<std::string> m_customColormapNames;
+    std::vector<ColormapData> m_customColormapData;
 
     void createEmptyVAO();
     void generateColormap();
-    GLuint loadColormapFromFile(const std::string& path);
+    GLuint loadColormapFromFile(const std::string& path, ColormapData& outData);
 };
 
 }

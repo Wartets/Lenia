@@ -397,3 +397,125 @@ showConsole=1
 | Dear ImGui | Latest docking | UI framework |
 | GLM | 0.9.9+ | Math library |
 | stb_image | Latest | Image loading (colormaps, icon) |
+## 14. Cross-Platform Compilation
+
+### Windows (Recommended: MSYS2 UCRT64)
+
+**Prerequisites:**
+```bash
+pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-glfw
+```
+
+**Build:**
+```batch
+.\build_windows.bat
+```
+
+**Options:**
+- `--opt=O3` - Optimization level (O0/O1/O2/O3)
+- `--clean` - Clean build
+- `--run` - Run after build
+- `--no-pause` - Don't pause on completion
+
+### Linux (Debian/Ubuntu)
+
+**Prerequisites:**
+```bash
+sudo apt-get install build-essential libglfw3-dev libgl1-mesa-dev
+```
+
+**Build:**
+```bash
+make
+```
+
+**Run:**
+```bash
+./bin/Lenia
+```
+
+### Linux (Arch Linux)
+
+**Prerequisites:**
+```bash
+sudo pacman -S base-devel glfw-x11 mesa
+```
+
+**Build:**
+```bash
+make
+```
+
+### Linux (Fedora/RHEL)
+
+**Prerequisites:**
+```bash
+sudo dnf install gcc-c++ glfw-devel mesa-libGL-devel
+```
+
+**Build:**
+```bash
+make
+```
+
+### macOS
+
+**Prerequisites:**
+```bash
+brew install glfw
+```
+
+**Makefile modifications needed for macOS:**
+```makefile
+# Replace Linux LIBS line with:
+LIBS := -lglfw -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo
+```
+
+**Build:**
+```bash
+make
+```
+
+**Note:** macOS only supports OpenGL up to 4.1 (deprecated). Full functionality requires OpenGL 4.5+ compute shaders. Consider using MoltenVK (Vulkan to Metal translation) for full feature support, or a native Metal port for future development.
+
+### Alternative Windows Compilers
+
+**Visual Studio (MSVC):**
+- Open project in Visual Studio
+- Configure include paths for libs/
+- Link against: glfw3.lib, opengl32.lib
+- Use C++20 standard (`/std:c++20`)
+
+**MinGW-w64 (non-MSYS2):**
+- Download MinGW-w64 from winlibs.com or sourceforge
+- Install GLFW binaries
+- Modify build_windows.bat paths accordingly
+
+### Portable Builds
+
+For distributing Windows binaries:
+1. Build with `-static-libgcc -static-libstdc++`
+2. Include required DLLs: `glfw3.dll`
+3. Package entire `bin/` folder including `assets/` and `Initialisation/`
+
+### GPU Requirements
+
+- **Minimum:** OpenGL 4.5 capable GPU (most GPUs from 2012+)
+- **Recommended:** OpenGL 4.6 with compute shader support
+- **Memory:** 512MB+ VRAM for standard grids, 2GB+ for large grids (2048x2048+)
+
+### Platform-Specific Notes
+
+**Windows:**
+- Icons and version info embedded via resource file (Lenia.rc)
+- Uses WinMain for release builds (no console)
+- Console shown when lenia_config.txt contains `showConsole=1`
+
+**Linux:**
+- X11 required (Wayland support via XWayland)
+- May need to set `export MESA_GL_VERSION_OVERRIDE=4.6` for some drivers
+
+**macOS Limitations:**
+- OpenGL deprecated by Apple (last supported: 4.1)
+- Compute shaders unavailable in native OpenGL
+- Would require Vulkan/Metal port for full feature parity

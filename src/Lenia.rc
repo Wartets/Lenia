@@ -1,0 +1,48 @@
+#include <windows.h>
+
+#define VER_MAJOR 1
+#define VER_MINOR 0
+#define VER_PATCH 0
+#define VER_BUILD 0
+
+#define STRINGIFY2(x) #x
+#define STRINGIFY(x) STRINGIFY2(x)
+
+#define VER_FILE_VERSION        VER_MAJOR,VER_MINOR,VER_PATCH,VER_BUILD
+#define VER_FILE_VERSION_STR    STRINGIFY(VER_MAJOR) "." STRINGIFY(VER_MINOR) "." STRINGIFY(VER_PATCH) "." STRINGIFY(VER_BUILD)
+#define VER_PRODUCT_VERSION     VER_MAJOR,VER_MINOR,VER_PATCH,VER_BUILD
+#define VER_PRODUCT_VERSION_STR STRINGIFY(VER_MAJOR) "." STRINGIFY(VER_MINOR) "." STRINGIFY(VER_PATCH)
+
+IDI_APPICON ICON "..\\assets\\icon.ico"
+
+1 RT_MANIFEST "Lenia.manifest"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     VER_FILE_VERSION
+PRODUCTVERSION  VER_PRODUCT_VERSION
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Lenia Project"
+            VALUE "FileDescription",  "Lenia - Generalized Artificial Life Simulator"
+            VALUE "FileVersion",      VER_FILE_VERSION_STR
+            VALUE "InternalName",     "Lenia"
+            VALUE "LegalCopyright",   "Copyright (c) 2024-2026 Lenia Project. MIT License."
+            VALUE "OriginalFilename", "Lenia.exe"
+            VALUE "ProductName",      "Lenia"
+            VALUE "ProductVersion",   VER_PRODUCT_VERSION_STR
+            VALUE "Comments",         "Continuous cellular automaton simulation based on Bert Chan's Lenia"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 1200
+    END
+END

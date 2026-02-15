@@ -195,6 +195,12 @@ bool Application::init(int width, int height, const std::string& title) {
 
     m_engine.loadCustomColormaps("colormap");
     m_ui.setCustomColormapNames(m_engine.customColormapNames());
+    
+    std::vector<std::vector<std::array<float, 4>>> colormapData;
+    for (const auto& cmap : m_engine.customColormapData()) {
+        colormapData.push_back(cmap.colors);
+    }
+    m_ui.setCustomColormapData(colormapData);
 
     LOG_INFO("Application initialised successfully.");
     return true;
@@ -706,6 +712,8 @@ void Application::setupCallbacks() {
     glfwSetFramebufferSizeCallback(m_window, framebufferSizeCallback);
     glfwSetKeyCallback(m_window, keyCallback);
     glfwSetScrollCallback(m_window, scrollCallback);
+    glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
+    glfwSetCursorPosCallback(m_window, cursorPosCallback);
 }
 
 void Application::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
@@ -799,6 +807,61 @@ void Application::scrollCallback(GLFWwindow* window, double, double yoffset) {
     app->m_params.panX = 0.5f + uvX / newZoom - worldX;
     app->m_params.panY = 0.5f + uvY / newZoom - worldY;
     app->m_params.zoom = newZoom;
+}
+
+void Application::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+    if (!app) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse) return;
+
+    bool middleButton = (button == GLFW_MOUSE_BUTTON_MIDDLE);
+    bool rightWithCtrl = (button == GLFW_MOUSE_BUTTON_RIGHT && (mods & GLFW_MOD_CONTROL));
+
+    if (middleButton || rightWithCtrl) {
+        if (action == GLFW_PRESS) {
+            glfwGetCursorPos(window, &app->m_panStartMouseX, &app->m_panStartMouseY);
+            app->m_panStartX = app->m_params.panX;
+            app->m_panStartY = app->m_params.panY;
+            app->m_isPanning = true;
+        } else if (action == GLFW_RELEASE) {
+            app->m_isPanning = false;
+        }
+    }
+}
+
+void Application::cursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
+    auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+    if (!app) return;
+
+    if (!app->m_isPanning) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (io.WantCaptureMouse) {
+        app->m_isPanning = false;
+        return;
+    }
+
+    double dx = xpos - app->m_panStartMouseX;
+    double dy = ypos - app->m_panStartMouseY;
+
+    float gridAspect = (app->m_params.gridH > 0) ?
+        static_cast<float>(app->m_params.gridW) / static_cast<float>(app->m_params.gridH) : 1.0f;
+    float viewAspect = (app->m_windowH > 0) ?
+        static_cast<float>(app->m_windowW) / static_cast<float>(app->m_windowH) : 1.0f;
+    float relAspect = viewAspect / gridAspect;
+
+    float scaleX = 1.0f;
+    float scaleY = 1.0f;
+    if (relAspect > 1.0f) scaleX = relAspect;
+    else                  scaleY = 1.0f / relAspect;
+
+    float panDeltaX = static_cast<float>(dx) / static_cast<float>(app->m_windowW) * 2.0f * scaleX / app->m_params.zoom;
+    float panDeltaY = static_cast<float>(-dy) / static_cast<float>(app->m_windowH) * 2.0f * scaleY / app->m_params.zoom;
+
+    app->m_params.panX = app->m_panStartX + panDeltaX;
+    app->m_params.panY = app->m_panStartY + panDeltaY;
 }
 
 }

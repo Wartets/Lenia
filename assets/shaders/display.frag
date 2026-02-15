@@ -48,6 +48,11 @@ uniform int   uCmapReverse;
 uniform int   uShowBoundary;
 uniform vec3  uBoundaryColor;
 uniform float uBoundaryOpacity;
+uniform int   uBoundaryStyle;
+uniform float uBoundaryThickness;
+uniform int   uBoundaryAnimate;
+uniform float uBoundaryDashLength;
+uniform float uTime;
 
 uniform int   uEdgeModeX;
 uniform int   uEdgeModeY;
@@ -63,6 +68,10 @@ uniform float uVectorFieldScale;
 uniform int   uVectorFieldDensity;
 uniform vec3  uGlowColor;
 uniform float uGlowIntensity;
+
+uniform int   uMultiChannelBlend;
+uniform vec3  uChannelWeights;
+uniform int   uUseColormapForMultichannel;
 
 vec3 viridis(float t) {
     vec3 c0 = vec3(0.2777, 0.0054, 0.3340);
@@ -443,15 +452,47 @@ void main() {
 
     vec3 col;
     if (multiCh) {
-        col = rawPixel.rgb;
-        col.r = applyColormapDeformation(col.r);
-        col.g = applyColormapDeformation(col.g);
-        col.b = applyColormapDeformation(col.b);
+        if (uUseColormapForMultichannel != 0) {
+            float blended = 0.0;
+            vec3 rgb = rawPixel.rgb;
+            if (uMultiChannelBlend == 0) {
+                blended = dot(rgb, uChannelWeights);
+            } else if (uMultiChannelBlend == 1) {
+                blended = (rgb.r + rgb.g + rgb.b) / 3.0;
+            } else if (uMultiChannelBlend == 2) {
+                blended = max(rgb.r, max(rgb.g, rgb.b));
+            } else if (uMultiChannelBlend == 3) {
+                blended = min(rgb.r, min(rgb.g, rgb.b));
+            } else if (uMultiChannelBlend == 4) {
+                blended = rgb.r;
+            } else if (uMultiChannelBlend == 5) {
+                blended = rgb.g;
+            } else if (uMultiChannelBlend == 6) {
+                blended = rgb.b;
+            }
+            float cmapT = applyColormapDeformation(blended);
+            switch (uColormapMode) {
+                case 1: col = viridis(cmapT); break;
+                case 2: col = magma(cmapT); break;
+                case 3: col = inferno(cmapT); break;
+                case 4: col = plasma(cmapT); break;
+                case 5: col = grayscale(cmapT); break;
+                case 6: col = grayscaleInv(cmapT); break;
+                case 7: col = jet(cmapT); break;
+                default: col = texture(uColormapTex, cmapT).rgb; break;
+            }
+            col = applyHueSatShift(col);
+        } else {
+            col = rawPixel.rgb;
+            col.r = applyColormapDeformation(col.r);
+            col.g = applyColormapDeformation(col.g);
+            col.b = applyColormapDeformation(col.b);
+            col = applyHueSatShift(col);
+        }
         col = clamp((col - 0.5) * uContrast + 0.5 + uBrightness - 0.5, vec3(0.0), vec3(1.0));
         if (uGamma != 1.0 && uGamma > 0.0) {
             col = pow(col, vec3(1.0 / uGamma));
         }
-        col = applyHueSatShift(col);
     } else {
         float cmapT = applyColormapDeformation(finalVal);
         switch (uColormapMode) {
@@ -503,14 +544,37 @@ void main() {
     }
 
     if (uShowBoundary != 0) {
-        float bw = 2.0 / (float(uGridW) * uZoom);
-        float bh = 2.0 / (float(uGridH) * uZoom);
+        float bScale = uBoundaryThickness / (float(min(uGridW, uGridH)) * uZoom);
         float dL = abs(uv.x);
         float dR = abs(uv.x - 1.0);
         float dT = abs(uv.y);
         float dB = abs(uv.y - 1.0);
         float minD = min(min(dL, dR), min(dT, dB));
-        float line = 1.0 - smoothstep(0.0, max(bw, bh), minD);
+        
+        float line = 1.0 - smoothstep(0.0, bScale, minD);
+        
+        if (uBoundaryStyle == 1 || uBoundaryStyle == 2) {
+            float dashScale = uBoundaryDashLength / float(min(uGridW, uGridH));
+            float edgePos = 0.0;
+            if (dL <= bScale || dR <= bScale) edgePos = uv.y;
+            else edgePos = uv.x;
+            float animOffset = uBoundaryAnimate != 0 ? uTime * 0.1 : 0.0;
+            float dashPattern = mod(edgePos / dashScale + animOffset, 1.0);
+            float dashThreshold = (uBoundaryStyle == 1) ? 0.5 : 0.7;
+            line *= step(dashPattern, dashThreshold);
+        }
+        
+        if (uBoundaryStyle == 3) {
+            float innerD = minD - bScale * 0.5;
+            float innerLine = 1.0 - smoothstep(0.0, bScale * 0.3, innerD);
+            line = max(line, innerLine * 0.7);
+        }
+        
+        if (uBoundaryStyle == 4) {
+            float glow = exp(-minD * float(min(uGridW, uGridH)) * uZoom * 0.5);
+            line = max(line, glow * 0.5);
+        }
+        
         col = mix(col, uBoundaryColor, line * uBoundaryOpacity);
     }
 

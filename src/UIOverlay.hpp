@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <string>
+#include <array>
 
 namespace lenia {
 
@@ -110,6 +111,17 @@ struct LeniaParams {
     float boundaryG{1.0f};
     float boundaryB{1.0f};
     float boundaryOpacity{0.5f};
+    int   boundaryStyle{0};
+    float boundaryThickness{2.0f};
+    bool  boundaryGlow{false};
+    bool  boundaryAnimate{false};
+    float boundaryDashLength{10.0f};
+    
+    int   multiChannelBlend{0};
+    float channelWeightR{1.0f};
+    float channelWeightG{1.0f};
+    float channelWeightB{1.0f};
+    bool  useColormapForMultichannel{false};
     
     int   contourLevels{10};
     float contourThickness{1.0f};
@@ -157,6 +169,18 @@ struct LeniaParams {
     int   gpuMemoryTotalMB{0};
     float gpuUtilization{0.0f};
     float cpuMemoryUsedMB{0.0f};
+
+    bool  infiniteWorldMode{false};
+    int   chunkSize{128};
+    int   loadedChunksRadius{2};
+    int   viewChunkX{0};
+    int   viewChunkY{0};
+    float worldExploreSpeed{1.0f};
+    bool  autoLoadChunks{true};
+    int   maxLoadedChunks{25};
+    bool  chunkBoundaryVisible{false};
+    int   chunkPersistence{0};
+    float chunkFadeDistance{2.0f};
 
     int   brushShape{0};
     int   brushSize{10};
@@ -313,6 +337,7 @@ public:
     void setPresetNames(const std::vector<std::string>& names) { m_presetNames = names; }
     void setKernelPresetNames(const std::vector<std::string>& names) { m_kernelPresetNames = names; }
     void setCustomColormapNames(const std::vector<std::string>& names) { m_customColormapNames = names; }
+    void setCustomColormapData(const std::vector<std::vector<std::array<float, 4>>>& data) { m_customColormapData = data; }
     int selectedPreset() const { return m_selectedPreset; }
     void setSelectedPreset(int idx) { m_selectedPreset = idx; }
     void setSelectedCategory(int idx) { m_selectedCategory = idx; }
@@ -326,6 +351,7 @@ private:
     std::vector<std::string> m_presetNames;
     std::vector<std::string> m_kernelPresetNames;
     std::vector<std::string> m_customColormapNames;
+    std::vector<std::vector<std::array<float, 4>>> m_customColormapData;
     int                      m_selectedPreset{0};
     int                      m_selectedKernelPreset{0};
     int                      m_selectedCategory{0};

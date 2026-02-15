@@ -42,10 +42,7 @@ set "CXXFLAGS=-std=c++20 !OPT_LEVEL! -Wall -Wextra -fpermissive"
 set "INCLUDES=-Isrc -Ilibs\imgui -Ilibs\imgui\backends -Ilibs\glad\include -Ilibs\glm -Ilibs\glfw\include"
 set "LDFLAGS=-Llibs\glfw\lib"
 set "LDLIBS=-lglfw3 -lopengl32 -lgdi32 -luser32 -lshell32"
-:: -static-libgcc -static-libstdc++ embeds the MinGW C/C++ runtime so the
-:: executable runs without needing libgcc_s_seh-1.dll / libstdc++-6.dll.
-:: -static links all static libs including libwinpthread.
-set "STATIC_RT=-static -mconsole"
+set "STATIC_RT=-static -mwindows"
 
 set "SRC_DIR=src"
 set "OBJ_DIR=obj"
@@ -215,6 +212,21 @@ if errorlevel 1 (
     set /a "OK+=1"
 )
 
+:: ---- Windows Resource File (.rc) ---------------------------------
+echo    --- Windows Resources ---
+if exist "%SRC_DIR%\Lenia.rc" (
+    set /a "TOTAL+=1"
+    echo         Lenia.rc
+    windres -i "%SRC_DIR%\Lenia.rc" -o "%OBJ_DIR%\Lenia_res.o" --include-dir="%SRC_DIR%" 2>&1
+    if errorlevel 1 (
+        echo         ^^!^^!^^! FAILED: Lenia.rc
+        set /a "FAIL+=1"
+        set "HAD_ERROR=1"
+    ) else (
+        set /a "OK+=1"
+    )
+)
+
 echo.
 echo         Compilation: !OK!/!TOTAL! succeeded, !FAIL! failed.
 if "!HAD_ERROR!"=="1" (
@@ -255,7 +267,13 @@ echo         Shaders copied to %BIN_DIR%\assets\shaders\
 if exist "assets\icon.png" (
     if not exist "%BIN_DIR%\assets" mkdir "%BIN_DIR%\assets"
     copy /Y "assets\icon.png" "%BIN_DIR%\assets\" >nul
-    echo         Icon copied to %BIN_DIR%\assets\
+    echo         Icon PNG copied.
+)
+
+if exist "assets\icon.ico" (
+    if not exist "%BIN_DIR%\assets" mkdir "%BIN_DIR%\assets"
+    copy /Y "assets\icon.ico" "%BIN_DIR%\assets\" >nul
+    echo         Icon ICO copied.
 )
 
 if not exist "%BIN_DIR%\Initialisation" mkdir "%BIN_DIR%\Initialisation"

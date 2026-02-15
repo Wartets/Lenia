@@ -1,5 +1,7 @@
 #include "Renderer.hpp"
 #include "Utils/GLUtils.hpp"
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -93,6 +95,17 @@ void Renderer::draw(GLuint stateTexture, int viewportW, int viewportH, const Len
     if (bcLoc >= 0)
         glProgramUniform3f(m_displayShader.id(), bcLoc, params.boundaryR, params.boundaryG, params.boundaryB);
     m_displayShader.setFloat("uBoundaryOpacity", params.boundaryOpacity);
+    m_displayShader.setInt("uBoundaryStyle", params.boundaryStyle);
+    m_displayShader.setFloat("uBoundaryThickness", params.boundaryThickness);
+    m_displayShader.setInt("uBoundaryAnimate", params.boundaryAnimate ? 1 : 0);
+    m_displayShader.setFloat("uBoundaryDashLength", params.boundaryDashLength);
+    m_displayShader.setFloat("uTime", static_cast<float>(glfwGetTime()));
+
+    m_displayShader.setInt("uMultiChannelBlend", params.multiChannelBlend);
+    GLint cwLoc = glGetUniformLocation(m_displayShader.id(), "uChannelWeights");
+    if (cwLoc >= 0)
+        glProgramUniform3f(m_displayShader.id(), cwLoc, params.channelWeightR, params.channelWeightG, params.channelWeightB);
+    m_displayShader.setInt("uUseColormapForMultichannel", params.useColormapForMultichannel ? 1 : 0);
 
     m_displayShader.setInt("uEdgeModeX", params.edgeModeX);
     m_displayShader.setInt("uEdgeModeY", params.edgeModeY);
@@ -172,11 +185,12 @@ void Renderer::generateColormap() {
     glTextureSubImage1D(m_colormapTex, 0, 0, SIZE, GL_RGBA, GL_FLOAT, pixels.data());
 }
 
-GLuint Renderer::loadColormapFromFile(const std::string& path) {
+GLuint Renderer::loadColormapFromFile(const std::string& path, ColormapData& outData) {
     std::ifstream f(path);
     if (!f.is_open()) return 0;
 
     std::vector<float> data;
+    outData.colors.clear();
     std::string line;
     while (std::getline(f, line)) {
         if (line.empty()) continue;
@@ -187,6 +201,7 @@ GLuint Renderer::loadColormapFromFile(const std::string& path) {
             data.push_back(g);
             data.push_back(b);
             data.push_back(a);
+            outData.colors.push_back({r, g, b, a});
         }
     }
 
@@ -213,9 +228,11 @@ void Renderer::loadCustomColormaps(const std::string& colormapDir) {
     std::sort(entries.begin(), entries.end());
 
     for (auto& [name, path] : entries) {
-        GLuint tex = loadColormapFromFile(path);
+        ColormapData cmapData;
+        GLuint tex = loadColormapFromFile(path, cmapData);
         if (tex != 0) {
             m_customColormapTextures.push_back(tex);
+            m_customColormapData.push_back(std::move(cmapData));
             std::string displayName = name;
             auto pos = displayName.find("-colormap");
             if (pos != std::string::npos)
