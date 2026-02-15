@@ -1,15 +1,18 @@
-# ===== Lenia - Generalized Artificial Life =====
-# Build output
+# Build outputs
 bin/
 obj/
+build/
+out/
+dist/
 
 # Log files
 log/
+*.log
 
-# Libraries (downloaded/installed separately)
+# Libraries (downloaded separately)
 libs/
 
-# IDE / editor files
+# IDE / Editor files
 .vs/
 .vscode/
 *.code-workspace
@@ -21,12 +24,15 @@ libs/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # OS files
 Thumbs.db
 Desktop.ini
 .DS_Store
 ehthumbs.db
+*.lnk
 
 # Compiled objects / binaries
 *.o
@@ -40,25 +46,49 @@ ehthumbs.db
 *.pdb
 *.ilk
 *.exp
+*.res
 
-# MSYS2 / MinGW
+# MinGW / MSYS2
 *.d
 
-# Python cache (from script.py)
+# Python
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+*.egg
+venv/
+.env/
 
 # Jupyter
 .ipynb_checkpoints/
+*.ipynb
 
 # Archives
 *.zip
 *.tar.gz
 *.7z
+*.rar
 
-# Others
-externalSources/
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# External resources
+externalsSources/
+
+# Development scripts
 inspect_npy.py
-Initialisation/tojs.ipynb
+script.py
+
+# ImGui state
+imgui.ini
+
+# Project specific
 ideas.txt
