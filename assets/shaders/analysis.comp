@@ -1,0 +1,106 @@
+#version 450 core
+
+layout(local_size_x = 256) in;
+
+layout(binding = 0) uniform sampler2D uStateTex;
+
+layout(std430, binding = 0) buffer AnalysisResult {
+    float totalMass;
+    float maxVal;
+    float minVal;
+    int   aliveCount;
+    float centroidX;
+    float centroidY;
+    float weightedX;
+    float weightedY;
+    int   totalPixels;
+    float avgVal;
+    float variance;
+    float boundMinX;
+    float boundMinY;
+    float boundMaxX;
+    float boundMaxY;
+    int   pad0;
+};
+
+layout(std140, binding = 3) uniform AnalysisParams {
+    int uGridW;
+    int uGridH;
+    float uThreshold;
+    int uPass;
+};
+
+shared float s_mass[256];
+shared float s_max[256];
+shared float s_min[256];
+shared int   s_alive[256];
+shared float s_wx[256];
+shared float s_wy[256];
+
+void main() {
+    uint tid = gl_LocalInvocationID.x;
+    uint gid = gl_GlobalInvocationID.x;
+    int total = uGridW * uGridH;
+
+    float localMass = 0.0;
+    float localMax = 0.0;
+    float localMin = 1.0;
+    int localAlive = 0;
+    float localWX = 0.0;
+    float localWY = 0.0;
+
+    for (uint i = gid; i < uint(total); i += gl_NumWorkGroups.x * 256u) {
+        int px = int(i) % uGridW;
+        int py = int(i) / uGridW;
+        vec2 uv = (vec2(px, py) + 0.5) / vec2(uGridW, uGridH);
+        float val = texture(uStateTex, uv).r;
+
+        localMass += val;
+        localMax = max(localMax, val);
+        localMin = min(localMin, val);
+        if (val > uThreshold) {
+            localAlive++;
+            localWX += val * float(px);
+            localWY += val * float(py);
+        }
+    }
+
+    s_mass[tid] = localMass;
+    s_max[tid] = localMax;
+    s_min[tid] = localMin;
+    s_alive[tid] = localAlive;
+    s_wx[tid] = localWX;
+    s_wy[tid] = localWY;
+
+    barrier();
+
+    for (uint stride = 128u; stride > 0u; stride >>= 1u) {
+        if (tid < stride) {
+            s_mass[tid] += s_mass[tid + stride];
+            s_max[tid] = max(s_max[tid], s_max[tid + stride]);
+            s_min[tid] = min(s_min[tid], s_min[tid + stride]);
+            s_alive[tid] += s_alive[tid + stride];
+            s_wx[tid] += s_wx[tid + stride];
+            s_wy[tid] += s_wy[tid + stride];
+        }
+        barrier();
+    }
+
+    if (tid == 0) {
+        totalMass = s_mass[0];
+        maxVal = s_max[0];
+        minVal = s_min[0];
+        aliveCount = s_alive[0];
+        totalPixels = total;
+        avgVal = s_mass[0] / float(total);
+        if (s_mass[0] > 1e-6) {
+            centroidX = s_wx[0] / s_mass[0];
+            centroidY = s_wy[0] / s_mass[0];
+        } else {
+            centroidX = float(uGridW) * 0.5;
+            centroidY = float(uGridH) * 0.5;
+        }
+        weightedX = s_wx[0];
+        weightedY = s_wy[0];
+    }
+}

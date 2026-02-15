@@ -1,0 +1,165 @@
+#version 450 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0) uniform sampler2D uStateIn;
+layout(rgba32f, binding = 1) writeonly uniform image2D uStateOut;
+layout(binding = 2) uniform sampler2D uKernel;
+layout(binding = 3) uniform sampler2D uAccumIn;
+layout(rgba32f, binding = 4) writeonly uniform image2D uNeighborSumsOut;
+layout(rgba32f, binding = 5) writeonly uniform image2D uGrowthOut;
+layout(binding = 6) uniform sampler2D uNeighborSumsIn;
+layout(binding = 7) uniform sampler2D uGrowthIn;
+
+layout(std140, binding = 1) uniform SimParams {
+    int   uGridW;
+    int   uGridH;
+    int   uRadius;
+    float uDt;
+    float uMu;
+    float uSigma;
+    int   uGrowthType;
+    int   uSourceChannel;
+    int   uDestChannel;
+    float uGrowthStrength;
+    int   uRulePass;
+    int   uNumRules;
+};
+
+float growthLenia(float x, float mu, float sigma) {
+    float d = (x - mu) / sigma;
+    return 2.0 * exp(-0.5 * d * d) - 1.0;
+}
+
+float growthStep(float x, float mu, float sigma) {
+    float lo = mu - sigma;
+    float hi = mu + sigma;
+    return (x >= lo && x <= hi) ? 1.0 : -1.0;
+}
+
+float growthPolynomial(float x, float mu, float sigma) {
+    float d = (x - mu) / max(sigma, 0.001);
+    float v = 1.0 - d * d;
+    return v > 0.0 ? v * v - 0.5 : -0.5;
+}
+
+float growthExponential(float x, float mu, float sigma) {
+    float d = abs(x - mu) / max(sigma, 0.001);
+    return 2.0 * exp(-d) - 1.0;
+}
+
+float growthDoublePeak(float x, float mu, float sigma) {
+    float d1 = (x - mu * 0.7) / max(sigma, 0.001);
+    float d2 = (x - mu * 1.3) / max(sigma, 0.001);
+    float g1 = exp(-0.5 * d1 * d1);
+    float g2 = exp(-0.5 * d2 * d2);
+    return 2.0 * max(g1, g2) - 1.0;
+}
+
+float growthAsymptoticTarget(float x, float mu, float sigma) {
+    float d = (x - mu) / max(sigma, 0.001);
+    return exp(-0.5 * d * d);
+}
+
+float growthQuad4(float x, float mu, float sigma) {
+    float d2 = (x - mu) * (x - mu) / (9.0 * sigma * sigma);
+    float v = max(0.0, 1.0 - d2);
+    return 2.0 * v * v * v * v - 1.0;
+}
+
+float softClipFn(float x) {
+    return 1.0 / (1.0 + exp(-4.0 * (x - 0.5)));
+}
+
+float getChannel(vec4 pixel, int ch) {
+    if (ch == 0) return pixel.r;
+    if (ch == 1) return pixel.g;
+    return pixel.b;
+}
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    if (gid.x >= uGridW || gid.y >= uGridH) return;
+
+    int diameter = uRadius * 2;
+    float potential = 0.0;
+    vec2 invGrid = vec2(1.0 / float(uGridW), 1.0 / float(uGridH));
+    float invKern = 1.0 / float(diameter);
+
+    for (int ky = 0; ky < diameter; ++ky) {
+        float kernRowV = (float(ky) + 0.5) * invKern;
+        int oy = ky - uRadius;
+        for (int kx = 0; kx < diameter; ++kx) {
+            float kernU = (float(kx) + 0.5) * invKern;
+            float kw = texture(uKernel, vec2(kernU, kernRowV)).r;
+            if (kw < 1e-7) continue;
+            int ox = kx - uRadius;
+            vec2 sampleUV = (vec2(gid) + vec2(ox, oy) + 0.5) * invGrid;
+            potential += getChannel(texture(uStateIn, sampleUV), uSourceChannel) * kw;
+        }
+    }
+
+    float g;
+    bool useAsymptotic = (uGrowthType == 7);
+    bool useSoftClip = (uGrowthType == 8);
+
+    if (uGrowthType == 1) {
+        g = growthStep(potential, uMu, uSigma);
+    } else if (uGrowthType == 4) {
+        g = growthPolynomial(potential, uMu, uSigma);
+    } else if (uGrowthType == 5) {
+        g = growthExponential(potential, uMu, uSigma);
+    } else if (uGrowthType == 6) {
+        g = growthDoublePeak(potential, uMu, uSigma);
+    } else if (useAsymptotic) {
+        g = growthAsymptoticTarget(potential, uMu, uSigma);
+    } else if (uGrowthType == 10) {
+        g = growthQuad4(potential, uMu, uSigma);
+    } else {
+        g = growthLenia(potential, uMu, uSigma);
+    }
+
+    vec2 pixUV = (vec2(gid) + 0.5) * invGrid;
+    vec4 accum = texture(uAccumIn, pixUV);
+
+    if (useAsymptotic) {
+        float curCh = getChannel(accum, uDestChannel);
+        float delta = uGrowthStrength * (g - curCh);
+        if (uDestChannel == 0) accum.r += uDt * delta;
+        else if (uDestChannel == 1) accum.g += uDt * delta;
+        else accum.b += uDt * delta;
+    } else {
+        float growth = uGrowthStrength * g;
+        if (uDestChannel == 0) accum.r += uDt * growth;
+        else if (uDestChannel == 1) accum.g += uDt * growth;
+        else accum.b += uDt * growth;
+    }
+
+    if (uRulePass == uNumRules - 1) {
+        if (useSoftClip) {
+            accum.r = softClipFn(accum.r);
+            accum.g = softClipFn(accum.g);
+            accum.b = softClipFn(accum.b);
+        } else {
+            accum.rgb = clamp(accum.rgb, vec3(0.0), vec3(1.0));
+        }
+    }
+    accum.a = 1.0;
+
+    imageStore(uStateOut, gid, accum);
+
+    vec4 nsAccum = texture(uNeighborSumsIn, pixUV);
+    if (uDestChannel == 0) nsAccum.r += potential * abs(uGrowthStrength);
+    else if (uDestChannel == 1) nsAccum.g += potential * abs(uGrowthStrength);
+    else nsAccum.b += potential * abs(uGrowthStrength);
+    nsAccum.a = 1.0;
+    imageStore(uNeighborSumsOut, gid, nsAccum);
+
+    vec4 grAccum = texture(uGrowthIn, pixUV);
+    float gVis = uDt * uGrowthStrength * g;
+    if (uDestChannel == 0) grAccum.r += gVis;
+    else if (uDestChannel == 1) grAccum.g += gVis;
+    else grAccum.b += gVis;
+    grAccum.a = 1.0;
+    imageStore(uGrowthOut, gid, grAccum);
+}

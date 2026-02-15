@@ -1,0 +1,126 @@
+#version 450 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(r32f, binding = 0) writeonly uniform image2D uStateOut;
+
+layout(std140, binding = 2) uniform NoiseParams {
+    int   uGridW;
+    int   uGridH;
+    int   uMode;
+    uint  uSeed;
+    float uParam1;
+    float uParam2;
+    float uParam3;
+    float uParam4;
+};
+
+uint pcg(uint v) {
+    uint state = v * 747796405u + 2891336453u;
+    uint word  = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float rand01(uvec2 coord, uint seed) {
+    uint h = pcg(coord.x * 1973u + coord.y * 9277u + seed * 26699u);
+    return float(h) / float(0xFFFFFFFFu);
+}
+
+float rand01i(uint idx, uint component, uint seed) {
+    uint h = pcg(idx * 7919u + component * 104729u + seed);
+    return float(h) / float(0xFFFFFFFFu);
+}
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    if (gid.x >= uGridW || gid.y >= uGridH) return;
+
+    float value = 0.0;
+
+    float nx = float(gid.x) / float(uGridW);
+    float ny = float(gid.y) / float(uGridH);
+    float cx = nx - 0.5;
+    float cy = ny - 0.5;
+    float dist = sqrt(cx * cx + cy * cy) * 2.0;
+
+    switch (uMode) {
+        case 0: {
+            value = rand01(uvec2(gid), uSeed);
+            break;
+        }
+
+        case 1: {
+            float sx = 0.1;
+            float sy = 0.1;
+            value = exp(-0.5 * ((cx * cx) / (sx * sx) + (cy * cy) / (sy * sy)));
+            break;
+        }
+
+        case 2: {
+            float mu    = uParam1;
+            float sigma = max(uParam2, 0.001);
+            float d = (dist - mu) / sigma;
+            value = exp(-0.5 * d * d);
+            break;
+        }
+
+        case 3: {
+            float size = max(uParam1, 0.05);
+            if (abs(cx) < size * 0.5 && abs(cy) < size * 0.5) {
+                value = rand01(uvec2(gid), uSeed);
+            }
+            break;
+        }
+
+        case 4: {
+            int numSquares = max(int(uParam1), 1);
+            float sqSize   = max(uParam2, 0.02);
+
+            for (int s = 0; s < numSquares && s < 30; ++s) {
+                float sqCx = rand01i(uint(s), 0u, uSeed);
+                float sqCy = rand01i(uint(s), 1u, uSeed);
+
+                float dx = nx - sqCx;
+                float dy = ny - sqCy;
+
+                if (dx >  0.5) dx -= 1.0;
+                if (dx < -0.5) dx += 1.0;
+                if (dy >  0.5) dy -= 1.0;
+                if (dy < -0.5) dy += 1.0;
+
+                if (abs(dx) < sqSize && abs(dy) < sqSize) {
+                    value = rand01(uvec2(gid), uSeed + uint(s) * 1000u);
+                    break;
+                }
+            }
+            break;
+        }
+
+        case 5: {
+            value = (nx + ny) * 0.5;
+            break;
+        }
+
+        case 6: {
+            float blobCx = rand01i(0u, 0u, uSeed);
+            float blobCy = rand01i(0u, 1u, uSeed);
+            float dx = nx - blobCx;
+            float dy = ny - blobCy;
+            if (dx >  0.5) dx -= 1.0;
+            if (dx < -0.5) dx += 1.0;
+            if (dy >  0.5) dy -= 1.0;
+            if (dy < -0.5) dy += 1.0;
+            float r = sqrt(dx * dx + dy * dy);
+            value = exp(-0.5 * (r * r) / (0.05 * 0.05));
+            value *= rand01(uvec2(gid), uSeed + 42u) * 0.3 + 0.7;
+            break;
+        }
+
+        case 7: {
+            value = rand01(uvec2(gid), uSeed) > 0.5 ? 1.0 : 0.0;
+            break;
+        }
+    }
+
+    imageStore(uStateOut, gid, vec4(value, 0.0, 0.0, 0.0));
+}

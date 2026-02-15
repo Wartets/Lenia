@@ -1,0 +1,193 @@
+#version 450 core
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(r32f, binding = 0) writeonly uniform image2D uKernelImage;
+
+layout(std140, binding = 0) uniform KernelParams {
+    int   uRadius;
+    int   uNumRings;
+    int   uKernelType;
+    int   uKernelModifier;
+    vec4  uRingWeightsVec4[16];
+    float uAnisotropyStrength;
+    float uAnisotropyAngle;
+    float uTimePhase;
+    float uPulseFrequency;
+};
+
+float gaussShell(float x) {
+    float d = x - 0.5;
+    return exp(-0.5 * (d * d) / (0.15 * 0.15));
+}
+
+float bump4(float x) {
+    if (x <= 0.0 || x >= 1.0) return 0.0;
+    return exp(4.0 - 1.0 / (x * (1.0 - x)));
+}
+
+float quad4Kernel(float x) {
+    if (x <= 0.0 || x >= 1.0) return 0.0;
+    float v = 4.0 * x * (1.0 - x);
+    return v * v * v * v;
+}
+
+float stepShell(float x) {
+    return (x >= 0.25 && x <= 0.75) ? 1.0 : 0.0;
+}
+
+float cosineShell(float x) {
+    if (x <= 0.0 || x >= 1.0) return 0.0;
+    float v = cos(3.14159265 * (x - 0.5) / 0.5);
+    return max(v, 0.0);
+}
+
+float mexicanHat(float x) {
+    float d = (x - 0.5) * 6.0;
+    return (1.0 - d * d) * exp(-0.5 * d * d);
+}
+
+float coneKernel(float x) {
+    if (x >= 1.0) return 0.0;
+    return 1.0 - x;
+}
+
+float torusKernel(float x) {
+    float r1 = 0.3;
+    float r2 = 0.7;
+    float w = 0.15;
+    float d1 = abs(x - r1);
+    float d2 = abs(x - r2);
+    float v1 = exp(-d1*d1 / (2.0*w*w));
+    float v2 = exp(-d2*d2 / (2.0*w*w));
+    return max(v1, v2);
+}
+
+float ringKernel(float x) {
+    float center = 0.5;
+    float width = 0.1;
+    float d = abs(x - center);
+    if (d > width) return 0.0;
+    return 1.0 - d / width;
+}
+
+float gaussianMixture(float x) {
+    float g1 = exp(-pow((x - 0.25) / 0.1, 2.0));
+    float g2 = 0.7 * exp(-pow((x - 0.5) / 0.15, 2.0));
+    float g3 = 0.5 * exp(-pow((x - 0.75) / 0.1, 2.0));
+    return g1 + g2 + g3;
+}
+
+float sincKernel(float x) {
+    if (x < 0.01) return 1.0;
+    float sx = x * 3.14159265 * 3.0;
+    return sin(sx) / sx;
+}
+
+float waveletKernel(float x) {
+    float t = (x - 0.5) * 8.0;
+    return (1.0 - t*t) * exp(-0.5 * t*t);
+}
+
+float negativeRingKernel(float x) {
+    float center = 0.6;
+    float width = 0.15;
+    float d = abs(x - center);
+    if (d > width) return gaussShell(x);
+    return -0.5 * (1.0 - d / width);
+}
+
+void main() {
+    ivec2 gid = ivec2(gl_GlobalInvocationID.xy);
+    int diameter = (uKernelType == 4) ? (uRadius * 2 + 1) : (uRadius * 2);
+    if (gid.x >= diameter || gid.y >= diameter) return;
+
+    float cx = float(gid.x) - float(uRadius) + 0.5;
+    float cy = float(gid.y) - float(uRadius) + 0.5;
+    
+    float aniso = 1.0;
+    if (uAnisotropyStrength > 0.001) {
+        float angle = atan(cy, cx);
+        float dirAngle = uAnisotropyAngle * 3.14159265 / 180.0;
+        float angleDiff = cos(angle - dirAngle);
+        aniso = 1.0 + uAnisotropyStrength * angleDiff;
+    }
+    
+    float timeMod = 1.0;
+    if (uPulseFrequency > 0.001) {
+        timeMod = 0.5 + 0.5 * sin(uTimePhase * uPulseFrequency * 2.0 * 3.14159265);
+    }
+    
+    float dist = sqrt(cx * cx + cy * cy) / float(uRadius);
+    dist = dist / aniso;
+
+    float value = 0.0;
+
+    if (uKernelType == 4) {
+        int dx = gid.x - uRadius;
+        int dy = gid.y - uRadius;
+        if (abs(dx) <= 1 && abs(dy) <= 1 && !(dx == 0 && dy == 0)) {
+            value = 1.0;
+        }
+    } else if (dist < 1.0 && uNumRings > 0) {
+        if (uNumRings == 1) {
+            float w = uRingWeightsVec4[0].x;
+            if (uKernelType == 0) {
+                value = w * gaussShell(dist);
+            } else if (uKernelType == 1) {
+                value = w * bump4(dist);
+            } else if (uKernelType == 5) {
+                value = w * stepShell(dist);
+            } else if (uKernelType == 6) {
+                value = w * cosineShell(dist);
+            } else if (uKernelType == 7) {
+                value = w * mexicanHat(dist);
+            } else if (uKernelType == 8) {
+                value = w * quad4Kernel(dist);
+            } else if (uKernelType == 10) {
+                value = w * coneKernel(dist);
+            } else if (uKernelType == 11) {
+                value = w * torusKernel(dist);
+            } else if (uKernelType == 12) {
+                value = w * ringKernel(dist);
+            } else if (uKernelType == 13) {
+                value = w * gaussianMixture(dist);
+            } else if (uKernelType == 14) {
+                value = w * sincKernel(dist);
+            } else if (uKernelType == 15) {
+                value = w * waveletKernel(dist);
+            } else if (uKernelType == 16) {
+                value = w * negativeRingKernel(dist);
+            } else {
+                value = w * gaussShell(dist);
+            }
+        } else {
+            float ringPos = dist * float(uNumRings);
+            int ringIdx = int(floor(ringPos));
+            ringIdx = min(ringIdx, uNumRings - 1);
+            float localPos = ringPos - float(ringIdx);
+            float weight = (ringIdx < 16) ? uRingWeightsVec4[ringIdx].x : 0.0;
+            if (uKernelType == 2) {
+                value = weight * gaussShell(localPos);
+            } else if (uKernelType == 3) {
+                value = weight * bump4(localPos);
+            } else if (uKernelType == 6) {
+                value = weight * cosineShell(localPos);
+            } else if (uKernelType == 7) {
+                value = weight * mexicanHat(localPos);
+            } else if (uKernelType == 9) {
+                value = weight * quad4Kernel(localPos);
+            } else {
+                value = weight * gaussShell(localPos);
+            }
+        }
+    }
+    
+    value *= timeMod;
+    
+    if (uKernelModifier == 1 && dist > 0.5 && dist < 1.0) {
+        value = -abs(value) * 0.3;
+    }
+
+    imageStore(uKernelImage, gid, vec4(value, 0.0, 0.0, 0.0));
+}

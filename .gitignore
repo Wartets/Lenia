@@ -1,0 +1,64 @@
+# ===== Lenia - Generalized Artificial Life =====
+# Build output
+bin/
+obj/
+
+# Log files
+log/
+
+# Libraries (downloaded/installed separately)
+libs/
+
+# IDE / editor files
+.vs/
+.vscode/
+*.code-workspace
+*.suo
+*.user
+*.sln
+*.vcxproj*
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+ehthumbs.db
+
+# Compiled objects / binaries
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.pdb
+*.ilk
+*.exp
+
+# MSYS2 / MinGW
+*.d
+
+# Python cache (from script.py)
+__pycache__/
+*.pyc
+*.pyo
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Archives
+*.zip
+*.tar.gz
+*.7z
+
+# Others
+externalSources/
+inspect_npy.py
+Initialisation/tojs.ipynb
+ideas.txt
