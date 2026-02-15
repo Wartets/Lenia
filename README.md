@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/C%2B%2B-20-blue.svg" alt="C++20"/>
   <img src="https://img.shields.io/badge/OpenGL-4.5%2F4.6-green.svg" alt="OpenGL"/>
   <img src="https://img.shields.io/badge/Platform-Windows-lightgrey.svg" alt="Platform"/>
+  <img src="https://img.shields.io/github/v/release/Wartets/Lenia" alt="Release"/>
 </p>
 
 A high-performance, real-time implementation of **Lenia**, a continuous cellular automaton system that produces life-like emergent behaviors. This project leverages GPU compute shaders for massively parallel simulation, enabling smooth interactive exploration of complex artificial life patterns.
