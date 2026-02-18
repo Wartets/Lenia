@@ -42,6 +42,14 @@ A high-performance, real-time implementation of **Lenia**, a continuous cellular
 - Placement options: Center, corners, scatter, grid, random
 - Real-time parameter adjustment with slider markers for default values
 
+### Accessibility
+- Adjustable UI scale (0.75x to 3.0x) for high-DPI displays
+- Configurable font size (10pt to 32pt)
+- High contrast mode
+- Reduce motion option
+- Keyboard navigation with focus indicators
+- Multi-language support: English, French (Francais)
+
 ## Requirements
 
 ### Build Requirements

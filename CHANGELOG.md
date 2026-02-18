@@ -2,7 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+## [1.1.0] - 2026-02-18
+
+### Added
+
+#### Accessibility
+
+- New Accessibility section in the UI panel
+- Adjustable UI scale (0.75x to 3.0x) for high-DPI displays and user preference
+- Configurable font size (10pt to 32pt) for improved readability
+- High contrast mode for users with visual impairments
+- Reduce motion option to minimize animations
+- Keyboard navigation support with Tab/Shift+Tab traversal
+- Visible focus indicators for keyboard navigation
+- System DPI awareness with automatic scaling detection
+- Persistent accessibility settings saved to configuration file
+
+#### Internationalization
+
+- Complete localization system with TR() macro for all UI strings
+- Full French translation (Francais) with 450+ translated strings
+- Language selection in Accessibility settings
+- Language preference persistence across sessions
+- Runtime language switching without restart
+
+### Changed
+
+- Refactored UI text rendering to use centralized localization system
+- Improved text rendering for variable-width fonts
+- Enhanced UI element spacing and alignment for different font sizes
+
+### Technical
+
+- Added Localization class (singleton) for translation management
+- Added AccessibilitySettings struct with configurable parameters
+- New TextId enum with compile-time safe translation identifiers
+- Language preference stored in lenia_lang.cfg
+- Accessibility settings stored in lenia_accessibility.cfg
+
+---
 
 ## [1.0.0] - 2026-02-16
 
@@ -80,4 +118,5 @@ High-performance GPU-accelerated Lenia continuous cellular automaton simulator b
 - Code structure and design patterns documented
 - MIT License
 
+[1.1.0]: https://github.com/Wartets/Lenia/releases/tag/v1.1.0
 [1.0.0]: https://github.com/Wartets/Lenia/releases/tag/v1.0.0
