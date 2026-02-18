@@ -1,3 +1,8 @@
+/**
+ * @file AnalysisManager.hpp
+ * @brief Real-time analysis of simulation state for pattern detection.
+ */
+
 #pragma once
 
 #include <glad/glad.h>
@@ -6,25 +11,39 @@
 
 namespace lenia {
 
+/**
+ * @brief Statistical data computed from simulation state.
+ * 
+ * Updated each frame when analysis is enabled. Used for:
+ * - Auto-pause on extinction or stabilization
+ * - Pattern characterization (size, position, movement)
+ * - History graphs in the UI
+ */
 struct AnalysisData {
-    float totalMass{0.0f};
-    float maxVal{0.0f};
-    float minVal{0.0f};
-    int   aliveCount{0};
-    float centroidX{0.0f};
-    float centroidY{0.0f};
-    float weightedX{0.0f};
-    float weightedY{0.0f};
-    int   totalPixels{0};
-    float avgVal{0.0f};
-    float variance{0.0f};
-    float boundMinX{0.0f};
-    float boundMinY{0.0f};
-    float boundMaxX{0.0f};
-    float boundMaxY{0.0f};
-    int   pad0{0};
+    float totalMass{0.0f};     // Sum of all cell values
+    float maxVal{0.0f};        // Maximum cell value
+    float minVal{0.0f};        // Minimum non-zero cell value
+    int   aliveCount{0};       // Number of cells above threshold
+    float centroidX{0.0f};     // Center of mass X coordinate
+    float centroidY{0.0f};     // Center of mass Y coordinate
+    float weightedX{0.0f};     // Weighted centroid X
+    float weightedY{0.0f};     // Weighted centroid Y
+    int   totalPixels{0};      // Total grid cells
+    float avgVal{0.0f};        // Average cell value
+    float variance{0.0f};      // Value variance
+    float boundMinX{0.0f};     // Bounding box min X
+    float boundMinY{0.0f};     // Bounding box min Y
+    float boundMaxX{0.0f};     // Bounding box max X
+    float boundMaxY{0.0f};     // Bounding box max Y
+    int   pad0{0};             // Padding for GPU alignment
 };
 
+/**
+ * @brief Computes statistics and detects patterns in simulation state.
+ * 
+ * Uses a GPU compute shader to efficiently analyze the entire grid,
+ * then performs CPU-side periodicity detection and movement tracking.
+ */
 class AnalysisManager {
 public:
     AnalysisManager() = default;
@@ -57,12 +76,13 @@ public:
     float movementDirection() const { return m_movementDirection; }
     float orientation() const { return m_orientation; }
 
-    static constexpr int HISTORY_SIZE = 512;
-    static constexpr int STABLE_WINDOW = 30;
-    static constexpr int MIN_PERIOD = 4;
-    static constexpr int MAX_PERIOD = 200;
-    static constexpr int PERIOD_CHECK_INTERVAL = 16;
-    static constexpr float PERIOD_THRESHOLD = 0.85f;
+    // Analysis configuration constants
+    static constexpr int HISTORY_SIZE = 512;       // Frames of history to keep
+    static constexpr int STABLE_WINDOW = 30;       // Frames to check for stability
+    static constexpr int MIN_PERIOD = 4;           // Minimum detectable period
+    static constexpr int MAX_PERIOD = 200;         // Maximum detectable period
+    static constexpr int PERIOD_CHECK_INTERVAL = 16;  // How often to check periodicity
+    static constexpr float PERIOD_THRESHOLD = 0.85f;  // Correlation threshold for period
 
 private:
     Shader m_shader;

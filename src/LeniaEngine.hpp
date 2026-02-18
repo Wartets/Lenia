@@ -1,3 +1,12 @@
+/**
+ * @file LeniaEngine.hpp
+ * @brief Core simulation engine for Lenia cellular automaton.
+ * 
+ * Implements GPU-accelerated simulation using OpenGL compute shaders.
+ * The engine manages the simulation state, kernel convolution, and
+ * growth function application.
+ */
+
 #pragma once
 
 #include "SimulationState.hpp"
@@ -13,47 +22,65 @@
 
 namespace lenia {
 
+/**
+ * @brief Grid initialization modes for resetting the simulation.
+ */
 enum class InitMode : int {
-    Random         = 0,
-    GaussianSpot   = 1,
-    GaussianRing   = 2,
-    CenterSquare   = 3,
-    RandomSquares  = 4,
-    Gradient       = 5,
-    KernelBlob     = 6,
-    RandomBinary   = 7,
-    Species        = 8
+    Random         = 0,   // Uniform random noise
+    GaussianSpot   = 1,   // Gaussian blob at center
+    GaussianRing   = 2,   // Ring-shaped Gaussian
+    CenterSquare   = 3,   // Solid square at center
+    RandomSquares  = 4,   // Multiple random squares
+    Gradient       = 5,   // Linear gradient
+    KernelBlob     = 6,   // Blob using kernel shape
+    RandomBinary   = 7,   // Binary random pattern
+    Species        = 8    // Load from species file
 };
 
+/**
+ * @brief Growth function types that determine cell state evolution.
+ * 
+ * The growth function g(u) maps the neighborhood sum u to a growth rate.
+ * Different functions produce different emergent behaviors.
+ */
 enum class GrowthType : int {
-    Lenia           = 0,
-    Step            = 1,
-    GameOfLife      = 2,
-    SmoothLife      = 3,
-    Polynomial      = 4,
-    Exponential     = 5,
-    DoublePeak      = 6,
-    Asymptotic      = 7,
-    SoftClip        = 8,
-    LargerThanLife  = 9,
-    Quad4           = 10
+    Lenia           = 0,  // Standard Lenia: g(u) = 2*exp(-((u-μ)/σ)²/2) - 1
+    Step            = 1,  // Step function threshold
+    GameOfLife      = 2,  // Conway's GoL rules (discrete)
+    SmoothLife      = 3,  // Smooth continuous Game of Life
+    Polynomial      = 4,  // Polynomial growth curve
+    Exponential     = 5,  // Exponential falloff
+    DoublePeak      = 6,  // Two growth peaks
+    Asymptotic      = 7,  // Asymptotic saturation
+    SoftClip        = 8,  // Soft clipping function
+    LargerThanLife  = 9,  // Extended neighborhood rules
+    Quad4           = 10  // Quad4 automaton variant
 };
 
+/**
+ * @brief Kernel types that define neighborhood weighting.
+ * 
+ * The kernel K(r) determines how neighboring cells are weighted
+ * in the convolution. Different kernels produce different patterns.
+ */
 enum class KernelType : int {
-    GaussianShell    = 0,
-    Bump4            = 1,
-    MultiringGauss   = 2,
-    MultiringBump4   = 3,
-    GameOfLife       = 4,
-    StepUnimodal     = 5,
-    CosineShell      = 6,
-    MexicanHat       = 7,
-    Quad4Kernel      = 8,
-    MultiringQuad4   = 9
+    GaussianShell    = 0,  // Smooth Gaussian ring
+    Bump4            = 1,  // Bump function to 4th power
+    MultiringGauss   = 2,  // Multiple Gaussian rings
+    MultiringBump4   = 3,  // Multiple bump function rings
+    GameOfLife       = 4,  // 3x3 Moore neighborhood (GoL)
+    StepUnimodal     = 5,  // Step function unimodal
+    CosineShell      = 6,  // Cosine-weighted shell
+    MexicanHat       = 7,  // Difference of Gaussians (DoG)
+    Quad4Kernel      = 8,  // Kernel for Quad4 variant
+    MultiringQuad4   = 9   // Multi-ring Quad4
 };
 
+/**
+ * @brief Species/pattern placement modes for initialization.
+ */
 enum class PlacementMode : int {
-    Center      = 0,
+    Center      = 0,   // Single placement at grid center
     TopLeft     = 1,
     TopRight    = 2,
     BottomLeft  = 3,
@@ -62,34 +89,40 @@ enum class PlacementMode : int {
     Bottom      = 6,
     Left        = 7,
     Right       = 8,
-    Random      = 9,
-    Grid        = 10,
-    TwoPlace    = 11,
-    Scatter     = 12
+    Random      = 9,   // Random positions
+    Grid        = 10,  // Regular grid arrangement
+    TwoPlace    = 11,  // Two corners (interaction study)
+    Scatter     = 12   // Non-overlapping random scatter
 };
 
+/**
+ * @brief Simulation preset containing all parameters for a specific pattern.
+ * 
+ * Presets store the configuration needed to reproduce known Lenia creatures
+ * and interesting patterns discovered through exploration.
+ */
 struct Preset {
-    const char*   name;
-    const char*   category;
-    float         mu;
-    float         sigma;
-    float         dt;
-    int           radius;
-    int           numRings;
-    float         ringWeights[16];
-    KernelType    kernelType;
-    GrowthType    growthType;
-    InitMode      initMode;
-    float         initParam1;
-    float         initParam2;
-    int           gridW;
-    int           gridH;
-    const char*   speciesFile;
-    PlacementMode placement;
-    bool          flipInit;
-    int           cellRows;
-    int           cellCols;
-    const float*  cellData;
+    const char*   name;           // Display name
+    const char*   category;       // Category for UI grouping
+    float         mu;             // Growth function center
+    float         sigma;          // Growth function width
+    float         dt;             // Time step size
+    int           radius;         // Kernel radius in cells
+    int           numRings;       // Number of kernel rings
+    float         ringWeights[16];// Weight for each ring
+    KernelType    kernelType;     // Kernel shape type
+    GrowthType    growthType;     // Growth function type
+    InitMode      initMode;       // Initialization mode
+    float         initParam1;     // Init parameter 1
+    float         initParam2;     // Init parameter 2
+    int           gridW;          // Recommended grid width
+    int           gridH;          // Recommended grid height
+    const char*   speciesFile;    // NPY file for species data
+    PlacementMode placement;      // How to place the species
+    bool          flipInit;       // Flip vertically on init
+    int           cellRows;       // Embedded cell data rows
+    int           cellCols;       // Embedded cell data columns
+    const float*  cellData;       // Embedded cell data pointer
 };
 
 struct KernelPreset {
@@ -100,6 +133,25 @@ struct KernelPreset {
     int         radius;
 };
 
+/**
+ * @brief Core simulation engine implementing Lenia cellular automaton.
+ * 
+ * The engine uses a double-buffered GPU texture approach:
+ * 1. Compute shader reads from current state texture
+ * 2. Convolves with kernel to get neighborhood sums
+ * 3. Applies growth function to compute state change
+ * 4. Writes new state to next texture
+ * 5. Swap buffers and repeat
+ * 
+ * The fundamental Lenia update equation is:
+ *   A^(t+dt) = clip[A^t + dt * G(K * A^t), 0, 1]
+ * 
+ * Where:
+ * - A is the cell state (0 to 1)
+ * - K is the convolution kernel
+ * - G is the growth function
+ * - dt is the time step
+ */
 class LeniaEngine {
 public:
     LeniaEngine() = default;

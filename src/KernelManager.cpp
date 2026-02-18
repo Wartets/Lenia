@@ -1,3 +1,8 @@
+/**
+ * @file KernelManager.cpp
+ * @brief Implementation of GPU kernel generation.
+ */
+
 #include "KernelManager.hpp"
 #include "Utils/GLUtils.hpp"
 #include <cstring>
@@ -22,8 +27,15 @@ void KernelManager::ensureUBO() {
     }
 }
 
+/**
+ * @brief Generate kernel texture using compute shader.
+ * 
+ * Creates a 2D texture representing the convolution kernel.
+ * The kernel is then normalized so all values sum to 1.0.
+ */
 void KernelManager::generate(const KernelConfig& cfg) {
     m_config = cfg;
+    // GoL kernel is always 3x3, others use 2*radius
     m_diameter = cfg.kernelType == 4 ? 3 : cfg.radius * 2;
 
     destroyTexture();
@@ -93,15 +105,23 @@ void KernelManager::updateTimePhase(float phase) {
     }
 }
 
+/**
+ * @brief Normalize kernel so all values sum to 1.0.
+ * 
+ * This ensures the convolution produces values in the expected
+ * range regardless of kernel size or ring weights.
+ */
 void KernelManager::normalizeKernel() {
     int count = m_diameter * m_diameter;
     std::vector<float> data(count);
     glGetTextureImage(m_texture, 0, GL_RED, GL_FLOAT,
                       count * sizeof(float), data.data());
 
+    // Sum all kernel values
     double sum = 0.0;
     for (float v : data) sum += v;
 
+    // Divide by sum to normalize
     if (sum > 1e-9) {
         float invSum = static_cast<float>(1.0 / sum);
         for (float& v : data) v *= invSum;

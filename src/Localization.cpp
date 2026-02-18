@@ -1,9 +1,18 @@
+/**
+ * @file Localization.cpp
+ * @brief Implementation of internationalization system.
+ * 
+ * String translations are defined inline for each language.
+ * Language preference is persisted to lenia_lang.cfg.
+ */
+
 #include "Localization.hpp"
 #include <fstream>
 #include <sstream>
 
 namespace lenia {
 
+/// Singleton accessor
 Localization& Localization::instance() {
     static Localization instance;
     return instance;

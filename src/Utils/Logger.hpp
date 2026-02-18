@@ -1,3 +1,12 @@
+/**
+ * @file Logger.hpp
+ * @brief Thread-safe logging system with file output.
+ * 
+ * Usage: LOG_INFO("Message: %s", value);
+ * Log levels: DEBUG, INFO, WARN, ERROR, FATAL
+ * Logs are written to both stderr and timestamped files in log/
+ */
+
 #pragma once
 
 #include <fstream>
@@ -10,6 +19,7 @@
 
 namespace lenia {
 
+/// Log severity levels
 enum class LogLevel { Debug, Info, Warn, Error, Fatal };
 
 class Logger {

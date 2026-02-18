@@ -1,3 +1,16 @@
+/**
+ * @file UIOverlay.cpp
+ * @brief Implementation of ImGui-based user interface overlay.
+ * 
+ * Provides all UI elements for controlling the Lenia simulation:
+ * - Parameter sliders (mu, sigma, dt, radius, etc.)
+ * - Preset selection and preview
+ * - Visualization options (colormap, effects)
+ * - Drawing tools (brush, walls)
+ * - Analysis graphs and statistics
+ * - Accessibility settings
+ */
+
 #include "UIOverlay.hpp"
 #include "LeniaEngine.hpp"
 #include "Presets.hpp"
@@ -16,6 +29,10 @@
 
 namespace lenia {
 
+/**
+ * @brief Apply subtle color tinting to UI section headers.
+ * Different sections get unique colors for visual distinction.
+ */
 static void pushSectionColor(int sectionIndex) {
     const ImVec4 tints[] = {
         {0.30f, 0.50f, 0.90f, 0.12f},

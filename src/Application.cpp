@@ -1,3 +1,11 @@
+/**
+ * @file Application.cpp
+ * @brief Implementation of main application controller.
+ * 
+ * Handles window creation, input processing, and coordinates the
+ * simulation engine, renderer, and UI overlay components.
+ */
+
 #include "Application.hpp"
 #include "LeniaEngine.hpp"
 #include "Presets.hpp"
@@ -210,6 +218,17 @@ bool Application::init(int width, int height, const std::string& title) {
     return true;
 }
 
+/**
+ * @brief Main application loop.
+ * 
+ * Each frame:
+ * 1. Process window events and input
+ * 2. Run simulation steps (if not paused)
+ * 3. Run analysis (if enabled)
+ * 4. Render simulation state
+ * 5. Render UI overlay
+ * 6. Swap buffers
+ */
 void Application::run() {
     LOG_INFO("Entering main loop.");
     while (!glfwWindowShouldClose(m_window)) {
@@ -780,16 +799,23 @@ void Application::keyCallback(GLFWwindow* window, int key, int, int action, int)
     }
 }
 
+/**
+ * @brief Handle scroll wheel for cursor-centered zoom.
+ * 
+ * Zooms in/out while keeping the point under the cursor stationary.
+ * This requires adjusting both zoom level and pan offset.
+ */
 void Application::scrollCallback(GLFWwindow* window, double, double yoffset) {
     auto* app = static_cast<Application*>(glfwGetWindowUserPointer(window));
     if (!app) return;
 
     ImGuiIO& io = ImGui::GetIO();
-    if (io.WantCaptureMouse) return;
+    if (io.WantCaptureMouse) return;  // UI has focus
 
     double mx, my;
     glfwGetCursorPos(window, &mx, &my);
 
+    // Convert cursor to normalized view coordinates (-0.5 to 0.5)
     float uvX = static_cast<float>(mx) / static_cast<float>(app->m_windowW) - 0.5f;
     float uvY = 0.5f - static_cast<float>(my) / static_cast<float>(app->m_windowH);
 

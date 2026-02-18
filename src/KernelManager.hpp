@@ -1,3 +1,11 @@
+/**
+ * @file KernelManager.hpp
+ * @brief GPU-accelerated kernel generation for Lenia convolution.
+ * 
+ * The kernel defines the neighborhood weighting for the convolution
+ * operation in the Lenia update equation: K * A^t
+ */
+
 #pragma once
 
 #include <glad/glad.h>
@@ -7,16 +15,19 @@
 
 namespace lenia {
 
+/**
+ * @brief Configuration parameters for kernel generation.
+ */
 struct KernelConfig {
-    int   radius{13};
-    int   numRings{1};
-    int   kernelType{0};
-    int   kernelModifier{0};
-    float ringWeights[16]{1.0f};
-    float anisotropyStrength{0.0f};
-    float anisotropyAngle{0.0f};
-    float timePhase{0.0f};
-    float pulseFrequency{0.0f};
+    int   radius{13};              // Kernel radius in cells
+    int   numRings{1};             // Number of concentric rings
+    int   kernelType{0};           // Shape type (GaussianShell, Bump4, etc.)
+    int   kernelModifier{0};       // Additional shape modifier
+    float ringWeights[16]{1.0f};   // Weight for each ring (up to 16)
+    float anisotropyStrength{0.0f};// Directional asymmetry strength
+    float anisotropyAngle{0.0f};   // Angle of anisotropy
+    float timePhase{0.0f};         // Phase for time-varying kernels
+    float pulseFrequency{0.0f};    // Frequency for pulsing kernels
 
     bool operator==(const KernelConfig& o) const {
         if (radius != o.radius || numRings != o.numRings || kernelType != o.kernelType) return false;
@@ -30,6 +41,18 @@ struct KernelConfig {
     bool operator!=(const KernelConfig& o) const { return !(*this == o); }
 };
 
+/**
+ * @brief Generates and manages convolution kernels on the GPU.
+ * 
+ * The kernel is stored as a 2D texture representing the weights
+ * for each cell in the neighborhood. Kernels are automatically
+ * normalized so their sum equals 1.0.
+ * 
+ * For Lenia, common kernel shapes include:
+ * - Gaussian shell: exp(-(r/R - 0.5)^2 / (2σ^2))
+ * - Multi-ring: Multiple concentric Gaussian shells
+ * - Game of Life: 3x3 Moore neighborhood
+ */
 class KernelManager {
 public:
     KernelManager() = default;

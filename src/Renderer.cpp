@@ -1,3 +1,8 @@
+/**
+ * @file Renderer.cpp
+ * @brief Implementation of GPU visualization renderer.
+ */
+
 #include "Renderer.hpp"
 #include "Utils/GLUtils.hpp"
 #define GLFW_INCLUDE_NONE
@@ -145,22 +150,29 @@ void Renderer::createEmptyVAO() {
     glCreateVertexArrays(1, &m_vao);
 }
 
+/**
+ * @brief Generate the default colormap as a 1D texture.
+ * 
+ * Creates a smooth gradient from dark blue through purple, orange,
+ * to white. Uses smoothstep interpolation between color stops.
+ */
 void Renderer::generateColormap() {
     constexpr int SIZE = 1024;
     std::vector<float> pixels(SIZE * 4);
 
+    // Define color stops: (position, R, G, B)
     struct ColorStop { float t, r, g, b; };
     std::vector<ColorStop> stops = {
-        {0.00f, 0.000f, 0.000f, 0.050f},
-        {0.15f, 0.050f, 0.020f, 0.200f},
-        {0.30f, 0.100f, 0.050f, 0.400f},
-        {0.40f, 0.300f, 0.050f, 0.350f},
-        {0.50f, 0.600f, 0.150f, 0.100f},
-        {0.60f, 0.900f, 0.400f, 0.050f},
-        {0.70f, 1.000f, 0.700f, 0.100f},
-        {0.80f, 1.000f, 0.900f, 0.300f},
-        {0.90f, 1.000f, 1.000f, 0.600f},
-        {1.00f, 1.000f, 1.000f, 1.000f},
+        {0.00f, 0.000f, 0.000f, 0.050f},  // Near black
+        {0.15f, 0.050f, 0.020f, 0.200f},  // Dark blue
+        {0.30f, 0.100f, 0.050f, 0.400f},  // Blue
+        {0.40f, 0.300f, 0.050f, 0.350f},  // Purple
+        {0.50f, 0.600f, 0.150f, 0.100f},  // Red-orange
+        {0.60f, 0.900f, 0.400f, 0.050f},  // Orange
+        {0.70f, 1.000f, 0.700f, 0.100f},  // Yellow-orange
+        {0.80f, 1.000f, 0.900f, 0.300f},  // Light yellow
+        {0.90f, 1.000f, 1.000f, 0.600f},  // Pale yellow
+        {1.00f, 1.000f, 1.000f, 1.000f},  // White
     };
 
     for (int i = 0; i < SIZE; ++i) {

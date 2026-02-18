@@ -1,3 +1,8 @@
+/**
+ * @file Shader.cpp
+ * @brief Implementation of OpenGL shader loading and compilation.
+ */
+
 #include "Shader.hpp"
 #include "Logger.hpp"
 #include <fstream>

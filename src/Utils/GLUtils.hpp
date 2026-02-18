@@ -1,3 +1,8 @@
+/**
+ * @file GLUtils.hpp
+ * @brief OpenGL utility functions and debug callback.
+ */
+
 #pragma once
 
 #include <glad/glad.h>
@@ -7,11 +12,18 @@
 
 namespace lenia {
 
+/**
+ * @brief OpenGL debug message callback for error reporting.
+ * 
+ * Registered with glDebugMessageCallback when debug context is available.
+ * Logs warnings and errors from the GL driver.
+ */
 inline void APIENTRY glDebugCallback(
     GLenum source, GLenum type, GLuint id,
     GLenum severity, GLsizei,
     const GLchar* message, const void*)
 {
+    // Skip notifications (too verbose)
     if (severity == GL_DEBUG_SEVERITY_NOTIFICATION) return;
     const char* srcStr = "?";
     switch (source) {
@@ -38,6 +50,13 @@ inline void APIENTRY glDebugCallback(
         LOG_WARN("[GL %s][%s] (id=%u): %s", srcStr, typeStr, id, message);
 }
 
+/**
+ * @brief Create a 2D texture with immutable storage.
+ * @param w Width in pixels
+ * @param h Height in pixels  
+ * @param internalFormat GL format (GL_R32F, GL_RGBA32F, etc.)
+ * @return OpenGL texture handle
+ */
 inline GLuint createTexture2D(GLsizei w, GLsizei h, GLenum internalFormat) {
     GLuint tex = 0;
     glCreateTextures(GL_TEXTURE_2D, 1, &tex);
@@ -49,6 +68,9 @@ inline GLuint createTexture2D(GLsizei w, GLsizei h, GLenum internalFormat) {
     return tex;
 }
 
+/**
+ * @brief Create a 1D texture (for colormaps).
+ */
 inline GLuint createTexture1D(GLsizei w, GLenum internalFormat) {
     GLuint tex = 0;
     glCreateTextures(GL_TEXTURE_1D, 1, &tex);
@@ -59,7 +81,13 @@ inline GLuint createTexture1D(GLsizei w, GLenum internalFormat) {
     return tex;
 }
 
+/**
+ * @brief Dispatch a 2D compute shader with automatic workgroup calculation.
+ * @param w, h Dimensions to cover
+ * @param localX, localY Workgroup size (default 16x16)
+ */
 inline void dispatchCompute2D(GLsizei w, GLsizei h, GLsizei localX = 16, GLsizei localY = 16) {
+    // Round up to cover all pixels
     GLsizei gx = (w + localX - 1) / localX;
     GLsizei gy = (h + localY - 1) / localY;
     glDispatchCompute(gx, gy, 1);

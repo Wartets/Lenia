@@ -1,3 +1,8 @@
+/**
+ * @file SimulationState.cpp
+ * @brief Implementation of double-buffered GPU state management.
+ */
+
 #include "SimulationState.hpp"
 #include "Utils/GLUtils.hpp"
 #include <vector>
@@ -18,6 +23,12 @@ void SimulationState::init(int width, int height, GLenum internalFormat) {
     createTextures();
 }
 
+/**
+ * @brief Resize the simulation grid, preserving existing content where possible.
+ * 
+ * Content is centered in the new grid if sizes differ. Data outside
+ * the new bounds is lost, new areas are initialized to zero.
+ */
 void SimulationState::resize(int width, int height) {
     if (width == m_width && height == m_height) return;
 
@@ -58,10 +69,16 @@ void SimulationState::resize(int width, int height) {
                         pixelFormat, GL_FLOAT, region.data());
 }
 
+/**
+ * @brief Swap read and write textures after a simulation step.
+ */
 void SimulationState::swap() {
     m_current = 1 - m_current;
 }
 
+/**
+ * @brief Clear both textures to zero (empty grid).
+ */
 void SimulationState::clear() {
     if (m_format == GL_RGBA32F) {
         float zero[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -75,13 +92,23 @@ void SimulationState::clear() {
     m_current = 0;
 }
 
+/**
+ * @brief Upload float data to a rectangular region of the grid.
+ * @param dstX, dstY Top-left corner of destination region
+ * @param w, h Dimensions of region to upload
+ * @param data Pointer to float array (row-major, single channel)
+ */
 void SimulationState::uploadRegion(int dstX, int dstY, int w, int h, const float* data) {
+    // Update both buffers to keep them synchronized
     glTextureSubImage2D(m_textures[m_current], 0, dstX, dstY, w, h,
                         GL_RED, GL_FLOAT, data);
     glTextureSubImage2D(m_textures[1 - m_current], 0, dstX, dstY, w, h,
                         GL_RED, GL_FLOAT, data);
 }
 
+/**
+ * @brief Upload RGBA float data (for multi-channel mode).
+ */
 void SimulationState::uploadRegionRGBA(int dstX, int dstY, int w, int h, const float* data) {
     glTextureSubImage2D(m_textures[m_current], 0, dstX, dstY, w, h,
                         GL_RGBA, GL_FLOAT, data);

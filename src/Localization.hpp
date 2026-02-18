@@ -1,3 +1,14 @@
+/**
+ * @file Localization.hpp
+ * @brief Internationalization (i18n) system for UI text.
+ * 
+ * Provides translatable strings for all UI elements. Currently supports:
+ * - English (default)
+ * - French
+ * 
+ * Usage: Localization::instance().get(TextId::AppTitle)
+ */
+
 #pragma once
 
 #include <string>

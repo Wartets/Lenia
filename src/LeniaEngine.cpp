@@ -1,3 +1,19 @@
+/**
+ * @file LeniaEngine.cpp
+ * @brief Implementation of Lenia cellular automaton simulation engine.
+ * 
+ * The core simulation loop implements the Lenia update equation:
+ *   A^(t+dt) = clip[A^t + dt * G(K * A^t), 0, 1]
+ * 
+ * Where:
+ * - A is the cell state grid (values 0 to 1)
+ * - K is the convolution kernel (neighborhood weighting)
+ * - G is the growth function (maps neighborhood sum to growth rate)
+ * - dt is the time step (controls simulation speed)
+ * 
+ * @see https://arxiv.org/abs/1812.05433 - Original Lenia paper
+ */
+
 #include "LeniaEngine.hpp"
 #include "Presets.hpp"
 #include "Utils/GLUtils.hpp"
@@ -91,7 +107,21 @@ void LeniaEngine::createUBOs() {
     glNamedBufferStorage(m_noiseUBO, sizeof(GPUNoiseParams), nullptr, GL_DYNAMIC_STORAGE_BIT);
 }
 
+/**
+ * @brief Run one or more simulation steps.
+ * 
+ * Each step:
+ * 1. Binds current state and kernel textures
+ * 2. Runs compute shader to convolve and apply growth function
+ * 3. Writes result to next state texture
+ * 4. Swaps buffers for next iteration
+ * 
+ * @param params Simulation parameters (mu, sigma, dt, etc.)
+ * @param steps Number of simulation steps to run
+ */
 void LeniaEngine::update(const LeniaParams& params, int steps) {
+    // Configure texture wrapping based on edge mode
+    // 0 = Periodic (wrap), 1 = Clamp, 2 = Mirror
     GLenum wrapX = (params.edgeModeX == 0) ? GL_REPEAT : 
                    (params.edgeModeX == 2) ? GL_MIRRORED_REPEAT : GL_CLAMP_TO_EDGE;
     GLenum wrapY = (params.edgeModeY == 0) ? GL_REPEAT : 
@@ -99,13 +129,14 @@ void LeniaEngine::update(const LeniaParams& params, int steps) {
     glSamplerParameteri(m_stateSampler, GL_TEXTURE_WRAP_S, wrapX);
     glSamplerParameteri(m_stateSampler, GL_TEXTURE_WRAP_T, wrapY);
 
+    // Prepare GPU parameters structure
     GPUSimParams gpu{};
     gpu.gridW       = m_state.width();
     gpu.gridH       = m_state.height();
     gpu.radius      = params.radius;
-    gpu.dt          = params.dt;
-    gpu.mu          = params.mu;
-    gpu.sigma       = params.sigma;
+    gpu.dt          = params.dt;      // Time step for integration
+    gpu.mu          = params.mu;      // Growth function center
+    gpu.sigma       = params.sigma;   // Growth function width
     gpu.growthType  = params.growthType;
     gpu.param1      = params.noiseParam1;
     gpu.param2      = params.noiseParam2;

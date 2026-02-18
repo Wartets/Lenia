@@ -1,3 +1,16 @@
+/**
+ * @file Presets.cpp
+ * @brief Preset definitions for known Lenia species and configurations.
+ * 
+ * Contains parameters discovered through evolution and manual exploration
+ * that produce interesting self-organizing patterns. Species are named
+ * using pseudo-Latin taxonomic conventions.
+ * 
+ * Preset format: {name, category, mu, sigma, dt, radius, numRings, ringWeights,
+ *                 kernelType, growthType, initMode, param1, param2, gridW, gridH,
+ *                 speciesFile, placement, flipInit, cellRows, cellCols, cellData}
+ */
+
 #include "Presets.hpp"
 #include "PresetData.inc"
 #include "AnimalData.inc"
@@ -7,6 +20,7 @@
 
 namespace lenia {
 
+// Single-channel Lenia presets - known species and interesting patterns
 static std::vector<Preset> s_presets = {
     {"Orbium Unicaudatus", "Lenia Species",
      0.15f, 0.015f, 0.1f, 13, 1, {1.0f}, KernelType::Bump4, GrowthType::Quad4,

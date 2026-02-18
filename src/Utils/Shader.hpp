@@ -1,3 +1,8 @@
+/**
+ * @file Shader.hpp
+ * @brief OpenGL shader program wrapper for loading and managing shaders.
+ */
+
 #pragma once
 
 #include <glad/glad.h>
@@ -6,6 +11,13 @@
 
 namespace lenia {
 
+/**
+ * @brief Wrapper for OpenGL shader programs.
+ * 
+ * Supports both compute shaders (for simulation) and graphics
+ * shaders (vertex + fragment for rendering). Provides uniform
+ * caching for efficient parameter updates.
+ */
 class Shader {
 public:
     Shader() = default;

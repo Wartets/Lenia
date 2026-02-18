@@ -1,3 +1,8 @@
+/**
+ * @file AnalysisManager.cpp
+ * @brief Implementation of simulation analysis and pattern detection.
+ */
+
 #include "AnalysisManager.hpp"
 #include "Utils/GLUtils.hpp"
 #include <cstring>
@@ -98,17 +103,25 @@ void AnalysisManager::analyze(GLuint stateTexture, int gridW, int gridH, float t
     }
 }
 
+/**
+ * @brief Detect periodic behavior using autocorrelation.
+ * 
+ * Computes autocorrelation of mass history at various lags
+ * to find repeating patterns. A high correlation at a specific
+ * lag indicates the pattern has that period.
+ */
 void AnalysisManager::detectPeriodicity() {
     m_periodic = false;
     m_period = 0;
     m_periodConfidence = 0.0f;
 
     int n = m_historyCount;
-    if (n < MIN_PERIOD * 3) return;
+    if (n < MIN_PERIOD * 3) return;  // Need enough data
 
     int maxLag = std::min(MAX_PERIOD, n / 2);
     if (maxLag < MIN_PERIOD) return;
 
+    // Compute mean of mass history
     float mean = 0.0f;
     for (int i = 0; i < n; ++i) {
         int idx = (m_historyHead - n + i + HISTORY_SIZE) % HISTORY_SIZE;
@@ -116,14 +129,16 @@ void AnalysisManager::detectPeriodicity() {
     }
     mean /= static_cast<float>(n);
 
+    // Compute variance
     float var = 0.0f;
     for (int i = 0; i < n; ++i) {
         int idx = (m_historyHead - n + i + HISTORY_SIZE) % HISTORY_SIZE;
         float d = m_massHistory[idx] - mean;
         var += d * d;
     }
-    if (var < 1e-10f) return;
+    if (var < 1e-10f) return;  // Constant signal, no periodicity
 
+    // Find lag with highest autocorrelation
     int bestLag = 0;
     float bestCorr = -1.0f;
 

@@ -1,3 +1,8 @@
+/**
+ * @file Renderer.hpp
+ * @brief GPU-based visualization rendering for Lenia simulation.
+ */
+
 #pragma once
 
 #include <glad/glad.h>
@@ -9,10 +14,23 @@
 
 namespace lenia {
 
+/**
+ * @brief Colormap data storage for custom colormaps.
+ */
 struct ColormapData {
-    std::vector<std::array<float, 4>> colors;
+    std::vector<std::array<float, 4>> colors;  // RGBA color stops
 };
 
+/**
+ * @brief Renders simulation state to screen with colormapping and effects.
+ * 
+ * Uses a fullscreen triangle with fragment shader for:
+ * - Colormap lookup (multiple built-in + custom file-based)
+ * - Brightness/contrast/gamma adjustment
+ * - Grid overlay rendering
+ * - Edge detection and glow effects
+ * - Zoom and pan transformations
+ */
 class Renderer {
 public:
     Renderer() = default;

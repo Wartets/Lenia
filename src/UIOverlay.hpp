@@ -1,3 +1,11 @@
+/**
+ * @file UIOverlay.hpp
+ * @brief ImGui-based user interface overlay for Lenia Explorer.
+ * 
+ * Provides controls for all simulation parameters, visualization options,
+ * analysis displays, and accessibility settings.
+ */
+
 #pragma once
 
 #include <glad/glad.h>
@@ -56,41 +64,64 @@ struct Preset;
 struct AnalysisData;
 class AnalysisManager;
 
+/**
+ * @brief Rule for multi-channel kernel interactions.
+ * 
+ * Each rule defines how one channel influences another through
+ * its own kernel shape and growth function parameters.
+ */
 struct ChannelKernelRule {
-    float ringWeights[16]{1.0f};
-    float mu{0.15f};
-    float sigma{0.015f};
-    float growthStrength{1.0f};
-    float radiusFraction{1.0f};
-    int   numRings{1};
-    int   sourceChannel{0};
-    int   destChannel{0};
-    int   kernelType{0};
-    int   growthType{0};
+    float ringWeights[16]{1.0f};  // Kernel ring weights
+    float mu{0.15f};              // Growth function center
+    float sigma{0.015f};          // Growth function width
+    float growthStrength{1.0f};   // Growth scaling factor
+    float radiusFraction{1.0f};   // Fraction of base radius
+    int   numRings{1};            // Number of kernel rings
+    int   sourceChannel{0};       // Input channel (0=R, 1=G, 2=B)
+    int   destChannel{0};         // Output channel
+    int   kernelType{0};          // Kernel shape type
+    int   growthType{0};          // Growth function type
 };
 
+/**
+ * @brief Complete set of simulation and display parameters.
+ * 
+ * Contains all configurable options for the Lenia simulation:
+ * - Core simulation: mu, sigma, dt, radius, kernel/growth types
+ * - Grid settings: size, edge conditions
+ * - Visualization: colormap, filters, effects
+ * - Analysis: thresholds, graph options
+ * - Drawing tools: brush settings, wall/obstacle settings
+ */
 struct LeniaParams {
-    float mu{0.15f};
-    float sigma{0.015f};
-    float dt{0.1f};
-    int   radius{13};
-    int   numRings{1};
-    float ringWeights[16]{1.0f};
-    int   kernelType{0};
-    int   growthType{0};
-    int   gridW{478};
-    int   gridH{478};
-    int   noiseMode{0};
-    float noiseParam1{0.0f};
-    float noiseParam2{0.0f};
-    float noiseParam3{0.0f};
-    float noiseParam4{0.0f};
-    int   colormapMode{0};
-    float zoom{1.0f};
-    float panX{0.0f};
-    float panY{0.0f};
-    float brightness{0.5f};
-    float contrast{1.0f};
+    // === Core Lenia Parameters ===
+    float mu{0.15f};              // Growth function center (typical: 0.1-0.3)
+    float sigma{0.015f};          // Growth function width (typical: 0.01-0.05)
+    float dt{0.1f};               // Time step per update (typical: 0.05-0.2)
+    int   radius{13};             // Kernel radius in cells
+    int   numRings{1};            // Number of kernel rings (1-16)
+    float ringWeights[16]{1.0f};  // Weight for each ring
+    int   kernelType{0};          // Kernel shape (see KernelType enum)
+    int   growthType{0};          // Growth function (see GrowthType enum)
+    
+    // === Grid Settings ===
+    int   gridW{478};             // Grid width in cells
+    int   gridH{478};             // Grid height in cells
+    
+    // === Initialization ===
+    int   noiseMode{0};           // Initialization mode
+    float noiseParam1{0.0f};      // Init-specific parameter 1
+    float noiseParam2{0.0f};      // Init-specific parameter 2
+    float noiseParam3{0.0f};      // Species preset index
+    float noiseParam4{0.0f};      // Multi-channel preset index
+    
+    // === Display Settings ===
+    int   colormapMode{0};        // Colormap selection
+    float zoom{1.0f};             // View zoom level
+    float panX{0.0f};             // View pan X offset
+    float panY{0.0f};             // View pan Y offset
+    float brightness{0.5f};       // Display brightness
+    float contrast{1.0f};         // Display contrast
     int   filterMode{0};
     float glowStrength{0.0f};
     float edgeStrength{0.0f};

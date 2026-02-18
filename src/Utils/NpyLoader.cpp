@@ -1,3 +1,10 @@
+/**
+ * @file NpyLoader.cpp
+ * @brief Implementation of NumPy .npy file loading.
+ * 
+ * NPY format specification: https://numpy.org/devdocs/reference/generated/numpy.lib.format.html
+ */
+
 #include "NpyLoader.hpp"
 #include "Logger.hpp"
 #include <fstream>
@@ -6,6 +13,12 @@
 
 namespace lenia {
 
+/**
+ * @brief Load a NumPy .npy file.
+ * 
+ * Handles both v1.0 and v2.0 NPY format headers.
+ * Converts float64 to float32 and handles Fortran order arrays.
+ */
 bool loadNpy(const std::string& path, NpyArray& out) {
     std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
@@ -13,6 +26,7 @@ bool loadNpy(const std::string& path, NpyArray& out) {
         return false;
     }
 
+    // Check magic number: "\x93NUMPY"
     char magic[6];
     file.read(magic, 6);
     if (magic[0] != '\x93' || std::string(magic + 1, 4) != "NUMP") {
@@ -20,6 +34,7 @@ bool loadNpy(const std::string& path, NpyArray& out) {
         return false;
     }
 
+    // Read version and header length
     uint8_t majorVer, minorVer;
     file.read(reinterpret_cast<char*>(&majorVer), 1);
     file.read(reinterpret_cast<char*>(&minorVer), 1);

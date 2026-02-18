@@ -1,3 +1,14 @@
+/**
+ * @file Main.cpp
+ * @brief Entry point for the Lenia Explorer application.
+ * 
+ * Lenia is a continuous cellular automaton system that generalizes
+ * Conway's Game of Life. This application provides a GPU-accelerated
+ * simulation and visualization environment.
+ * 
+ * @see https://arxiv.org/abs/1812.05433 - Original Lenia paper by Bert Chan
+ */
+
 #include "Application.hpp"
 #include "Utils/Logger.hpp"
 #include <iostream>
@@ -10,6 +21,10 @@
 #include <windows.h>
 #endif
 
+/**
+ * @brief Reads the console visibility setting from config file.
+ * @return true if console should be shown, false otherwise.
+ */
 static bool readShowConsoleConfig() {
     std::ifstream cfg("lenia_config.txt");
     if (!cfg.is_open()) return false;
@@ -22,6 +37,14 @@ static bool readShowConsoleConfig() {
     return false;
 }
 
+/**
+ * @brief Initializes and runs the Lenia application.
+ * 
+ * Sets up logging, creates the application instance, and enters
+ * the main loop. Handles all top-level exceptions.
+ * 
+ * @return EXIT_SUCCESS on clean exit, EXIT_FAILURE on error.
+ */
 static int runApplication() {
     lenia::Logger::init();
     LOG_INFO("===== Lenia starting =====");
@@ -34,7 +57,7 @@ static int runApplication() {
             LOG_FATAL("Application initialisation failed. See messages above.");
             exitCode = EXIT_FAILURE;
         } else {
-            app.run();
+            app.run();  // Enter main simulation loop
         }
     } catch (const std::exception& e) {
         LOG_FATAL("Unhandled exception: %s", e.what());
@@ -50,10 +73,11 @@ static int runApplication() {
 }
 
 #ifdef _WIN32
+// Windows GUI subsystem entry point (no console window by default)
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     bool showConsole = readShowConsoleConfig();
     if (showConsole) {
-        AllocConsole();
+        AllocConsole();  // Create console window for debug output
         FILE* fp;
         freopen_s(&fp, "CONOUT$", "w", stdout);
         freopen_s(&fp, "CONOUT$", "w", stderr);
@@ -63,6 +87,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 }
 #endif
 
+// Standard console entry point
 int main() {
 #ifdef _WIN32
     bool showConsole = readShowConsoleConfig();
