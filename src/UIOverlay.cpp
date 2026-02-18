@@ -2,6 +2,7 @@
 #include "LeniaEngine.hpp"
 #include "Presets.hpp"
 #include "AnalysisManager.hpp"
+#include "Localization.hpp"
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -225,6 +226,7 @@ void UIOverlay::updatePauseOverlay(float deltaTime) {
 }
 
 void UIOverlay::renderPauseOverlay(int windowW, int windowH) {
+    (void)windowH;
     if (m_pauseOverlayAlpha <= 0.0f) return;
     
     ImDrawList* dl = ImGui::GetBackgroundDrawList();
@@ -264,19 +266,33 @@ UIOverlay::~UIOverlay() {
 }
 
 bool UIOverlay::init(GLFWwindow* window) {
+    m_window = window;
+    
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
+    float xscale = 1.0f, yscale = 1.0f;
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (monitor) {
+        glfwGetMonitorContentScale(monitor, &xscale, &yscale);
+    }
+    m_dpiScale = xscale;
+    
+    loadAccessibilitySettings();
+    applyKeyboardNavigationSettings();
+    
+    float effectiveScale = m_dpiScale * m_accessibilitySettings.uiScale;
+    
     ImGui::StyleColorsDark();
     ImGuiStyle& style = ImGui::GetStyle();
     style.FrameRounding    = 4.0f;
     style.GrabRounding     = 3.0f;
     style.WindowRounding   = 6.0f;
-    style.ScrollbarSize    = 14.0f;
+    style.ScrollbarSize    = 14.0f * effectiveScale;
     style.TabRounding      = 4.0f;
     style.IndentSpacing    = 16.0f;
+    style.WindowBorderHoverPadding = std::max(1.0f, style.WindowBorderHoverPadding);
     style.Colors[ImGuiCol_WindowBg]       = ImVec4(0.08f, 0.08f, 0.12f, 0.94f);
     style.Colors[ImGuiCol_TitleBg]        = ImVec4(0.06f, 0.06f, 0.10f, 1.00f);
     style.Colors[ImGuiCol_TitleBgActive]  = ImVec4(0.12f, 0.12f, 0.20f, 1.00f);
@@ -287,9 +303,28 @@ bool UIOverlay::init(GLFWwindow* window) {
     style.Colors[ImGuiCol_ButtonHovered]  = ImVec4(0.28f, 0.35f, 0.55f, 1.00f);
     style.Colors[ImGuiCol_ButtonActive]   = ImVec4(0.35f, 0.45f, 0.70f, 1.00f);
     style.Colors[ImGuiCol_Separator]      = ImVec4(0.30f, 0.30f, 0.45f, 0.50f);
+    
+    style.ScaleAllSizes(effectiveScale);
+    style.WindowBorderHoverPadding = std::max(1.0f, style.WindowBorderHoverPadding);
+    m_lastStyleScale = effectiveScale;
+    
+    float fontSize = m_accessibilitySettings.fontSize * effectiveScale;
+    io.Fonts->Clear();
+    io.Fonts->AddFontDefault();
+    m_defaultFont = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/segoeui.ttf", fontSize);
+    if (!m_defaultFont) {
+        ImFontConfig config;
+        config.SizePixels = fontSize;
+        m_defaultFont = io.Fonts->AddFontDefault(&config);
+    }
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 450");
+    
+    if (m_accessibilitySettings.highContrast) {
+        applyHighContrastTheme(true);
+    }
+    
     m_initialized = true;
     return true;
 }
@@ -412,15 +447,15 @@ void UIOverlay::drawGrowthPlot(LeniaParams& params) {
 
     ImGui::Dummy(canvasSz);
     if (params.growthType == 2) {
-        ImGui::TextDisabled("Game of Life B3/S23 (x-axis: neighbor count 0-8)");
+        ImGui::TextDisabled(TR(GrowthPlotGoLHint));
     } else if (params.growthType == 7) {
-        ImGui::TextDisabled("Asymptotic target(U)-A  mu=%.4f sigma=%.4f", params.mu, params.sigma);
+        ImGui::TextDisabled(TR(GrowthPlotAsymptoticHint), params.mu, params.sigma);
     } else if (params.growthType == 8) {
-        ImGui::TextDisabled("SoftClip sigmoid  mu=%.4f sigma=%.4f", params.mu, params.sigma);
+        ImGui::TextDisabled(TR(GrowthPlotSoftClipHint), params.mu, params.sigma);
     } else if (params.growthType == 9) {
-        ImGui::TextDisabled("Larger-than-Life  mu=%.4f sigma=%.4f", params.mu, params.sigma);
+        ImGui::TextDisabled(TR(GrowthPlotLTLHint), params.mu, params.sigma);
     } else {
-        ImGui::TextDisabled("Growth(U)  mu=%.4f  sigma=%.4f", params.mu, params.sigma);
+        ImGui::TextDisabled(TR(GrowthPlotDefaultHint), params.mu, params.sigma);
     }
 }
 
@@ -521,7 +556,7 @@ void UIOverlay::drawKernelCrossSection(GLuint kernelTex, int kernelDiam) {
                 IM_COL32(60, 60, 80, 180), 4.0f);
 
     ImGui::Dummy(sz);
-    ImGui::TextDisabled("Kernel Cross-Section (%dx%d)", kernelDiam, kernelDiam);
+    ImGui::TextDisabled(TR(KernelCrossSectionWithSize), kernelDiam, kernelDiam);
 }
 
 static void viridisColor(float t, float& r, float& g, float& b) {
@@ -619,7 +654,7 @@ void UIOverlay::drawColorbar(const LeniaParams& params) {
         }
         dl->AddRect(pos, ImVec2(pos.x + totalW, pos.y + barH), IM_COL32(80, 80, 100, 180), 2.0f);
         ImGui::Dummy(ImVec2(totalW, barH));
-        ImGui::TextDisabled("RGB Channel Intensity");
+        ImGui::TextDisabled(TR(DisplayRGBChannelIntensity));
         return;
     }
 
@@ -904,7 +939,7 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(520, 920), ImGuiCond_FirstUseEver);
 
-    ImGui::Begin("Lenia Explorer");
+    ImGui::Begin(TR(AppTitle));
 
     if (paused != m_lastPausedState) {
         triggerPauseOverlay(paused);
@@ -914,205 +949,65 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
     int sec = 0;
 
     pushSectionColor(sec++);
-    if (sectionHeader("Info", 0)) {
+    if (sectionHeader(TR(SectionInfo), 0)) {
         if (mouseInGrid) {
-            ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "Cursor: (%d, %d)", mouseGridX, mouseGridY);
+            ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), TR(InfoCursor), mouseGridX, mouseGridY);
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.5f, 1.0f), "Value: %.5f", mouseValue);
+            ImGui::TextColored(ImVec4(1.0f, 0.9f, 0.5f, 1.0f), TR(InfoValue), mouseValue);
             ImGui::Separator();
         }
 
-        ImGui::Text("Grid: %d x %d  |  Step: %d", params.gridW, params.gridH, stepCount);
-        ImGui::Text("Channels: %d  |  Rules: %d", params.numChannels, params.numKernelRules);
+        ImGui::Text(TR(InfoGrid), params.gridW, params.gridH, stepCount);
+        ImGui::Text(TR(InfoChannels), params.numChannels, params.numKernelRules);
 
         ImGui::Separator();
-        if (ImGui::Checkbox("Show Console on Startup", &params.showConsoleOnStartup)) {
+        if (ImGui::Checkbox(TR(InfoShowConsoleStartup), &params.showConsoleOnStartup)) {
             std::ofstream cfg("lenia_config.txt");
             if (cfg.is_open()) {
                 cfg << "showConsole=" << (params.showConsoleOnStartup ? "1" : "0") << "\n";
                 cfg.close();
             }
         }
-        Tooltip("If enabled, the console window will appear when starting the application.\nRequires restart to take effect.");
+        Tooltip(TR(InfoShowConsoleTooltip));
 
-        ImGui::SeparatorText("Keybinds");
-        ImGui::TextWrapped(
-            "Space: Pause/Resume\n"
-            "S: Single step | Hold S: Step @5fps\n"
-            "Shift+S: Step @10fps\n"
-            "R: Reset | C: Clear\n"
-            "+/-: Zoom | Arrows: Pan\n"
-            "Home: Reset View | Tab: Toggle UI\n"
-            "1-5: Set steps/frame\n"
-            "F11: Fullscreen | Esc: Quit");
+        ImGui::SeparatorText(TR(KeybindsHeader));
+        ImGui::TextWrapped(TR(KeybindsText));
 
         ImGui::Separator();
-        if (ImGui::TreeNode("Theory")) {
+        if (ImGui::TreeNode(TR(TheoryHeader))) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.85f, 0.85f, 0.95f, 1.0f));
 
-            ImGui::SeparatorText("Lenia Fundamentals");
-            ImGui::TextWrapped(
-                "Lenia is a continuous cellular automaton system that generalizes discrete CA like "
-                "Conway's Game of Life into a continuous domain. Unlike discrete CA with binary states "
-                "and integer neighbor counts, Lenia uses continuous cell states in [0,1], continuous "
-                "space via smooth kernels, and continuous time via differential integration."
-            );
+            ImGui::SeparatorText(TR(TheoryFundamentals));
+            ImGui::TextWrapped(TR(TheoryFundamentalsText));
             ImGui::Spacing();
-            ImGui::TextWrapped(
-                "The fundamental equation governing Lenia is:\n"
-                "  A(t+dt) = clip( A(t) + dt * G(K * A) )\n\n"
-                "Where:\n"
-                "  A(t) = cell state field at time t (values in [0,1])\n"
-                "  K = convolution kernel (weighted neighborhood)\n"
-                "  K * A = potential field (neighborhood sums)\n"
-                "  G() = growth mapping function\n"
-                "  dt = time step (integration rate)\n"
-                "  clip() = clamps result to [0,1]"
-            );
+            ImGui::TextWrapped(TR(TheoryEquation));
 
-            ImGui::SeparatorText("Convolution Kernel");
-            ImGui::TextWrapped(
-                "The kernel K defines how neighbors influence each cell. It is typically radially "
-                "symmetric and normalized (sums to 1). The kernel radius R determines the range of "
-                "interaction - larger R creates larger, more complex patterns but requires more computation.\n\n"
-                "Common kernel shapes:\n"
-                "- Gaussian Shell: exp(-(r-peaks)^2/w^2), smooth bell-shaped rings\n"
-                "- Bump4: (4r(1-r))^4, polynomial with compact support\n"
-                "- Quad4: Polynomial kernel variant for specific dynamics\n"
-                "- Multi-ring: Multiple concentric rings with independent weights (B values)\n\n"
-                "The kernel is sampled on a (2R+1)x(2R+1) grid centered on each cell. The potential "
-                "U at position (x,y) is computed as: U(x,y) = sum over neighbors of K(dx,dy) * A(x+dx,y+dy)"
-            );
+            ImGui::SeparatorText(TR(TheoryKernel));
+            ImGui::TextWrapped(TR(TheoryKernelText));
 
-            ImGui::SeparatorText("Growth Function G(u)");
-            ImGui::TextWrapped(
-                "The growth function G maps potential U to a growth rate in [-1, +1]. This determines "
-                "how cells respond to their neighborhood sum:\n\n"
-                "- G(u) > 0: Cell value increases (growth/birth)\n"
-                "- G(u) < 0: Cell value decreases (decay/death)\n"
-                "- G(u) = 0: Cell remains stable\n\n"
-                "Standard Lenia Growth (Gaussian):\n"
-                "  G(u) = 2 * exp(-((u - mu)^2) / (2 * sigma^2)) - 1\n\n"
-                "The parameters mu and sigma control:\n"
-                "- mu (center): The ideal potential for maximum growth. Cells thrive when surrounded "
-                "by approximately 'mu' worth of neighbors.\n"
-                "- sigma (width): How tolerant growth is to deviation from mu. Small sigma = precise, "
-                "fragile patterns. Large sigma = robust but less defined patterns.\n\n"
-                "Growth Function Types:\n"
-                "- Gaussian: Smooth bell curve, standard Lenia behavior\n"
-                "- Step: Sharp threshold transitions, binary-like behavior\n"
-                "- Game of Life: Discrete neighbor counting (B3/S23 rules)\n"
-                "- SmoothLife: Smooth interpolation of GoL rules\n"
-                "- Polynomial: G(u) = (u-mu)^n shaped curves\n"
-                "- Exponential: Asymmetric decay characteristics\n"
-                "- Double Peak: Two growth optima for complex dynamics\n"
-                "- Mexican Hat: Center-surround pattern (DoG)\n"
-                "- Asymptotic: Approaches limits smoothly\n"
-                "- Soft Clip: Smooth saturation behavior"
-            );
+            ImGui::SeparatorText(TR(TheoryGrowthFunction));
+            ImGui::TextWrapped(TR(TheoryGrowthFunctionText));
 
-            ImGui::SeparatorText("Time Integration (dt)");
-            ImGui::TextWrapped(
-                "The time step dt controls how much change is applied per simulation step:\n\n"
-                "- Small dt (0.01-0.1): Smooth, continuous evolution. Patterns move and morph gradually. "
-                "Better for observing fine dynamics but slower overall evolution.\n"
-                "- Medium dt (0.1-0.5): Standard Lenia range. Balance of smoothness and speed.\n"
-                "- Large dt (0.5-1.0): Discrete-like behavior. Patterns jump between states. "
-                "Necessary for GoL-style dynamics where dt=1.0 gives classic behavior.\n\n"
-                "The dt also affects pattern stability - some configurations only work with specific dt "
-                "values. Standard Orbium uses dt=0.1, while multi-channel aquarium species often use dt=0.5."
-            );
+            ImGui::SeparatorText(TR(TheoryTimeIntegration));
+            ImGui::TextWrapped(TR(TheoryTimeIntegrationText));
 
-            ImGui::SeparatorText("Multi-Channel Systems");
-            ImGui::TextWrapped(
-                "Multi-channel Lenia extends the system to multiple interacting fields (channels). "
-                "Each channel is an independent state field that can influence other channels through "
-                "kernel rules.\n\n"
-                "A kernel rule defines:\n"
-                "- Source Channel: Which channel is read by the kernel\n"
-                "- Destination Channel: Which channel receives the growth\n"
-                "- Strength (h): Coupling strength, can be negative for inhibition\n"
-                "- Private mu/sigma: Rule-specific growth parameters\n"
-                "- Private kernel: Rule-specific kernel shape and size\n\n"
-                "This enables predator-prey dynamics, symbiotic relationships, and complex ecosystems "
-                "where different 'species' (channel patterns) interact. Channel interactions can be:\n"
-                "- Self-interaction (Ch0->Ch0): Standard single-channel behavior\n"
-                "- Cross-activation (Ch0->Ch1 with h>0): Presence promotes growth\n"
-                "- Cross-inhibition (Ch0->Ch1 with h<0): Presence suppresses growth"
-            );
+            ImGui::SeparatorText(TR(TheoryMultiChannel));
+            ImGui::TextWrapped(TR(TheoryMultiChannelText));
 
-            ImGui::SeparatorText("Edge Conditions");
-            ImGui::TextWrapped(
-                "Edge conditions determine what happens at grid boundaries:\n\n"
-                "- Periodic (Wrap): Edges connect to opposite sides, creating a toroidal surface. "
-                "Patterns leaving one edge reappear on the other. Most common for exploring "
-                "infinite-like behavior.\n\n"
-                "- Clamp to Edge: Values at the boundary are extended beyond. Creates a 'wall' "
-                "effect where patterns see the edge state repeated.\n\n"
-                "- Mirror: Values are reflected at boundaries. Patterns see a mirror image of "
-                "themselves at edges, creating reflection symmetry.\n\n"
-                "Edge Fade controls the transition width for non-periodic modes, allowing smooth "
-                "boundaries instead of sharp walls."
-            );
+            ImGui::SeparatorText(TR(TheoryEdgeConditions));
+            ImGui::TextWrapped(TR(TheoryEdgeConditionsText));
 
-            ImGui::SeparatorText("Walls");
-            ImGui::TextWrapped(
-                "Walls are persistent obstacles that affect simulation dynamics:\n\n"
-                "- Wall Texture: A separate RGBA channel storing wall presence and properties\n"
-                "- Wall Strength: How much the wall blocks or modifies cell activity\n"
-                "- Wall Decay: Rate at which walls fade over time (0 = permanent)\n\n"
-                "Wall Physics Types:\n"
-                "- Block: Prevents cell activity in wall regions (multiplies by 0)\n"
-                "- Reflect: Patterns bounce off walls (reverses growth direction)\n"
-                "- Absorb: Walls absorb cell energy (negative growth in wall regions)\n"
-                "- Dampen: Reduces but doesn't eliminate activity\n"
-                "- None: Walls are visible but have no physical effect\n\n"
-                "Walls can be drawn with the brush system using various shapes and patterns."
-            );
+            ImGui::SeparatorText(TR(TheoryWalls));
+            ImGui::TextWrapped(TR(TheoryWallsText));
 
-            ImGui::SeparatorText("Pattern Characteristics");
-            ImGui::TextWrapped(
-                "Lenia can produce various pattern types:\n\n"
-                "- Solitons (Gliders): Self-sustaining, moving structures that maintain their form. "
-                "The famous Orbium is a soliton that glides smoothly across the grid.\n\n"
-                "- Oscillators: Patterns that cycle through states while remaining stationary. "
-                "Include pulsing, rotating, and complex periodic behaviors.\n\n"
-                "- Still Lifes: Stable, unchanging patterns where G(U)=0 everywhere.\n\n"
-                "- Chaotic/Turbulent: Unpredictable, ever-changing dynamics without stable structures.\n\n"
-                "- Growing/Dying: Patterns that expand or contract. Some fill the grid, others fade away.\n\n"
-                "Pattern survival depends on precise parameter tuning. Each species has a specific "
-                "(mu, sigma, kernel) configuration that enables its existence."
-            );
+            ImGui::SeparatorText(TR(TheoryPatternCharacteristics));
+            ImGui::TextWrapped(TR(TheoryPatternCharacteristicsText));
 
-            ImGui::SeparatorText("Parameter Relationships");
-            ImGui::TextWrapped(
-                "Key parameter interactions:\n\n"
-                "mu and Kernel: Higher mu values require denser neighborhoods or larger kernels "
-                "to achieve the target potential. Species with high mu tend to be larger.\n\n"
-                "sigma and Stability: Narrow sigma creates precise but fragile patterns that require "
-                "exact conditions. Wide sigma produces robust but less defined structures.\n\n"
-                "dt and Pattern Speed: Smaller dt makes patterns move slower per step but more "
-                "smoothly. Some patterns only exist at specific dt values.\n\n"
-                "Radius and Complexity: Larger radius allows more complex internal structure and "
-                "larger patterns. Very small radius (R<6) limits pattern richness.\n\n"
-                "Multi-ring Weights (B values): Control the relative influence of inner vs outer "
-                "rings. Asymmetric B distributions create directional or complex behaviors."
-            );
+            ImGui::SeparatorText(TR(TheoryParameterRelationships));
+            ImGui::TextWrapped(TR(TheoryParameterRelationshipsText));
 
-            ImGui::SeparatorText("Colormap & Visualization");
-            ImGui::TextWrapped(
-                "Display modes for understanding simulation state:\n\n"
-                "- World View: Shows cell states with chosen colormap\n"
-                "- Neighbor Sums: Visualizes potential field U (convolution result)\n"
-                "- Growth Values: Shows G(U), the current growth rate field\n"
-                "- Kernel: Displays the kernel shape being used\n"
-                "- Delta: Shows change per step (A(t+dt) - A(t))\n\n"
-                "Colormaps map scalar values to colors:\n"
-                "- Perceptually uniform (Viridis, Magma, Inferno, Plasma): Equal steps look equal\n"
-                "- Linear (Grayscale): Direct brightness mapping\n"
-                "- Diverging (Jet): Distinct colors for high/low values\n\n"
-                "For multi-channel, RGB channels are displayed directly as colors."
-            );
+            ImGui::SeparatorText(TR(TheoryColormapVisualization));
+            ImGui::TextWrapped(TR(TheoryColormapVisualizationText));
 
             ImGui::PopStyleColor();
             ImGui::TreePop();
@@ -1121,7 +1016,7 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Performance", 1, true)) {
+    if (sectionHeader(TR(SectionPerformance), 1, true)) {
         float avgFt = 0.0f, minFt = FLT_MAX, maxFt = 0.0f;
         for (int i = 0; i < m_frameTimeCount; ++i) {
             int idx = (m_frameTimeHead - m_frameTimeCount + i + 120) % 120;
@@ -1138,59 +1033,59 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         else if (fps >= 15.0f) fpsColor = ImVec4(1.0f, 0.6f, 0.2f, 1.0f);
         else fpsColor = ImVec4(1.0f, 0.3f, 0.3f, 1.0f);
 
-        ImGui::TextColored(fpsColor, "FPS: %.1f", fps);
-        Tooltip("Current frames per second.\nGreen: 55+ (excellent)\nYellow: 30-55 (good)\nOrange: 15-30 (acceptable)\nRed: <15 (slow)");
+        ImGui::TextColored(fpsColor, TR(PerfFPS), fps);
+        Tooltip(TR(PerfFPSTooltip));
         ImGui::SameLine();
-        ImGui::Text("| Frame: %.2f ms (avg)", avgFt);
+        ImGui::Text(TR(PerfFrameTime), avgFt);
 
         ImGui::Separator();
-        ImGui::Text("Frame Time:");
+        ImGui::Text(TR(PerfFrameTimeLabel));
         ImGui::SameLine(120);
-        ImGui::TextDisabled("min=%.2f  avg=%.2f  max=%.2f ms", minFt, avgFt, maxFt);
+        ImGui::TextDisabled(TR(PerfFrameTimeStats), minFt, avgFt, maxFt);
 
         int totalCells = params.gridW * params.gridH;
-        ImGui::Text("Grid Size:");
+        ImGui::Text(TR(PerfGridSize));
         ImGui::SameLine(120);
         if (totalCells >= 1000000)
-            ImGui::Text("%d x %d = %.2fM cells", params.gridW, params.gridH, totalCells / 1000000.0f);
+            ImGui::Text(TR(PerfGridSizeCellsM), params.gridW, params.gridH, totalCells / 1000000.0f);
         else
-            ImGui::Text("%d x %d = %.1fK cells", params.gridW, params.gridH, totalCells / 1000.0f);
+            ImGui::Text(TR(PerfGridSizeCellsK), params.gridW, params.gridH, totalCells / 1000.0f);
 
         float simMsPerStep = simTimeMs / std::max(1, stepsPerFrame);
-        ImGui::Text("Simulation:");
+        ImGui::Text(TR(PerfSimulation));
         ImGui::SameLine(120);
-        ImGui::Text("%.2f ms/step  (%.2f ms total)", simMsPerStep, simTimeMs);
+        ImGui::Text(TR(PerfSimTimeStep), simMsPerStep, simTimeMs);
 
         float cellsPerSec = static_cast<float>(totalCells * stepsPerFrame) / std::max(0.001f, simTimeMs / 1000.0f);
-        ImGui::Text("Throughput:");
+        ImGui::Text(TR(PerfThroughput));
         ImGui::SameLine(120);
         if (cellsPerSec >= 1e9f)
-            ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.5f, 1.0f), "%.2f Gcells/s", cellsPerSec / 1e9f);
+            ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.5f, 1.0f), TR(PerfThroughputG), cellsPerSec / 1e9f);
         else if (cellsPerSec >= 1e6f)
-            ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), "%.1f Mcells/s", cellsPerSec / 1e6f);
+            ImGui::TextColored(ImVec4(0.5f, 0.9f, 0.5f, 1.0f), TR(PerfThroughputM), cellsPerSec / 1e6f);
         else
-            ImGui::Text("%.0f Kcells/s", cellsPerSec / 1e3f);
-        Tooltip("Processing throughput in cells updated per second.");
+            ImGui::Text(TR(PerfThroughputK), cellsPerSec / 1e3f);
+        Tooltip(TR(PerfThroughputTooltip));
 
         int kernelCells = (params.radius * 2 + 1) * (params.radius * 2 + 1);
         long long opsPerStep = static_cast<long long>(totalCells) * kernelCells;
-        ImGui::Text("Kernel Ops:");
+        ImGui::Text(TR(PerfKernelOps));
         ImGui::SameLine(120);
         if (opsPerStep >= 1e9)
-            ImGui::Text("%.2f Gops/step", opsPerStep / 1e9);
+            ImGui::Text(TR(PerfKernelOpsG), opsPerStep / 1e9);
         else
-            ImGui::Text("%.1f Mops/step", opsPerStep / 1e6);
-        Tooltip("Kernel convolution operations per simulation step (cells x kernel size).");
+            ImGui::Text(TR(PerfKernelOpsM), opsPerStep / 1e6);
+        Tooltip(TR(PerfKernelOpsTooltip));
 
-        ImGui::Text("Kernel Size:");
+        ImGui::Text(TR(PerfKernelSize));
         ImGui::SameLine(120);
-        ImGui::Text("%dx%d = %d samples", params.radius * 2 + 1, params.radius * 2 + 1, kernelCells);
+        ImGui::Text(TR(PerfKernelSizeSamples), params.radius * 2 + 1, params.radius * 2 + 1, kernelCells);
 
-        ImGui::Text("Steps/Frame:");
+        ImGui::Text(TR(PerfStepsFrame));
         ImGui::SameLine(120);
         ImGui::Text("%d", stepsPerFrame);
 
-        ImGui::Text("Total Steps:");
+        ImGui::Text(TR(PerfTotalSteps));
         ImGui::SameLine(120);
         ImGui::Text("%d", stepCount);
 
@@ -1198,16 +1093,16 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         const char* perfLevel;
         ImVec4 perfColor;
         if (fps >= 55.0f && simTimeMs < 16.0f) {
-            perfLevel = "Excellent"; perfColor = ImVec4(0.3f, 1.0f, 0.3f, 1.0f);
+            perfLevel = TR(PerfExcellent); perfColor = ImVec4(0.3f, 1.0f, 0.3f, 1.0f);
         } else if (fps >= 30.0f && simTimeMs < 33.0f) {
-            perfLevel = "Good"; perfColor = ImVec4(0.7f, 1.0f, 0.3f, 1.0f);
+            perfLevel = TR(PerfGood); perfColor = ImVec4(0.7f, 1.0f, 0.3f, 1.0f);
         } else if (fps >= 15.0f) {
-            perfLevel = "Acceptable"; perfColor = ImVec4(1.0f, 0.8f, 0.2f, 1.0f);
+            perfLevel = TR(PerfAcceptable); perfColor = ImVec4(1.0f, 0.8f, 0.2f, 1.0f);
         } else {
-            perfLevel = "Slow"; perfColor = ImVec4(1.0f, 0.4f, 0.2f, 1.0f);
+            perfLevel = TR(PerfSlow); perfColor = ImVec4(1.0f, 0.4f, 0.2f, 1.0f);
         }
-        ImGui::TextColored(perfColor, "Performance: %s", perfLevel);
-        Tooltip("Reduce grid size or kernel radius to improve performance.");
+        ImGui::TextColored(perfColor, TR(PerfPerformance), perfLevel);
+        Tooltip(TR(PerfPerformanceTooltip));
 
         if (m_frameTimeCount > 1) {
             float ftPlot[120];
@@ -1215,55 +1110,59 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                 int idx = (m_frameTimeHead - m_frameTimeCount + i + 120) % 120;
                 ftPlot[i] = m_frameTimeHistory[idx];
             }
-            drawGraphWithAxes("Frame Time", ftPlot, m_frameTimeCount, 0.0f, maxFt * 1.2f, "frames", "ms", 70.0f, IM_COL32(100, 200, 255, 220));
+            drawGraphWithAxes(TR(PerfFrameTimeGraphTitle), ftPlot, m_frameTimeCount, 0.0f, maxFt * 1.2f,
+                              TR(PerfFrameTimeGraphXLabel), TR(PerfFrameTimeGraphYLabel), 70.0f,
+                              IM_COL32(100, 200, 255, 220));
         }
         
         ImGui::Spacing();
-        ImGui::Checkbox("Show Resource Monitor", &params.showResourceMonitor);
+        ImGui::Checkbox(TR(PerfShowResourceMonitor), &params.showResourceMonitor);
         if (params.showResourceMonitor) {
             ImGui::Separator();
-            ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), "Resource Usage:");
+            ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), TR(PerfResourceUsage));
             
             if (params.gpuMemoryTotalMB > 0) {
                 float memPercent = static_cast<float>(params.gpuMemoryUsedMB) / params.gpuMemoryTotalMB;
                 ImVec4 memColor = (memPercent > 0.9f) ? ImVec4(1.0f, 0.3f, 0.3f, 1.0f) :
                                   (memPercent > 0.7f) ? ImVec4(1.0f, 0.8f, 0.3f, 1.0f) :
                                   ImVec4(0.3f, 1.0f, 0.3f, 1.0f);
-                ImGui::TextColored(memColor, "GPU Memory: %d / %d MB (%.0f%%)", 
+                ImGui::TextColored(memColor, TR(PerfGPUMemory), 
                     params.gpuMemoryUsedMB, params.gpuMemoryTotalMB, memPercent * 100.0f);
                 ImGui::ProgressBar(memPercent, ImVec2(-1, 8), "");
             } else {
-                ImGui::TextDisabled("GPU Memory: N/A");
+                ImGui::TextDisabled(TR(PerfGPUMemoryNA));
             }
             
             if (params.cpuMemoryUsedMB > 0.0f) {
-                ImGui::Text("CPU Memory: %.1f MB", params.cpuMemoryUsedMB);
+                ImGui::Text(TR(PerfCPUMemory), params.cpuMemoryUsedMB);
             }
             
             int gridMemBytes = params.gridW * params.gridH * (params.numChannels > 1 ? 16 : 4) * 2;
             int kernelMemBytes = (params.radius * 2) * (params.radius * 2) * 4;
             float totalTexMB = (gridMemBytes + kernelMemBytes) / (1024.0f * 1024.0f);
-            ImGui::Text("Texture Memory: ~%.2f MB", totalTexMB);
-            Tooltip("Estimated GPU memory for simulation textures.\n2x grid textures + kernel texture.");
+            ImGui::Text(TR(PerfTextureMemory), totalTexMB);
+            Tooltip(TR(PerfTextureMemoryTooltip));
         }
     }
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Grid", 2)) {
+    if (sectionHeader(TR(SectionGrid), 2)) {
         bool gridDirty = false;
         int prevW = params.gridW, prevH = params.gridH;
 
-        ImGui::Text("Size: %d x %d (%s cells)",
+        ImGui::Text(TR(GridSize),
                     params.gridW, params.gridH,
                     params.gridW * params.gridH > 1000000 ?
                         (std::to_string(params.gridW * params.gridH / 1000000) + "M").c_str() :
                         (std::to_string(params.gridW * params.gridH / 1000) + "K").c_str());
 
-        ImGui::InputInt("Width##grid",  &params.gridW, 64, 256);
-        Tooltip("Grid width in cells. Larger grids allow more complex patterns but are slower. Must be >= 32.");
-        ImGui::InputInt("Height##grid", &params.gridH, 64, 256);
-        Tooltip("Grid height in cells. The grid wraps toroidally (edges connect).");
+        std::string widthLabel = std::string(TR(GridWidth)) + "##grid";
+        std::string heightLabel = std::string(TR(GridHeight)) + "##grid";
+        ImGui::InputInt(widthLabel.c_str(),  &params.gridW, 64, 256);
+        Tooltip(TR(GridWidthTooltip));
+        ImGui::InputInt(heightLabel.c_str(), &params.gridH, 64, 256);
+        Tooltip(TR(GridHeightTooltip));
         params.gridW = std::max(32, params.gridW);
         params.gridH = std::max(32, params.gridH);
         if (params.gridW != prevW || params.gridH != prevH) gridDirty = true;
@@ -1272,71 +1171,82 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
             m_callbacks.onGridResized();
 
         ImGui::Separator();
-        ImGui::Text("Transformations:");
+        ImGui::Text(TR(GridTransformations));
 
         float btnW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 3) / 4.0f;
 
-        if (ImGui::Button("<->##fliph", ImVec2(btnW, 24))) {
+        std::string flipHLabel = std::string(TR(GridFlipHorizontal)) + "##fliph";
+        std::string flipVLabel = std::string(TR(GridFlipVertical)) + "##flipv";
+        std::string rotCWLabel = std::string(TR(GridRotateCW)) + "##rotcw";
+        std::string rotCCWLabel = std::string(TR(GridRotateCCW)) + "##rotccw";
+        if (ImGui::Button(flipHLabel.c_str(), ImVec2(btnW, 24))) {
             if (m_callbacks.onFlipHorizontal)
                 m_callbacks.onFlipHorizontal(true);
         }
-        Tooltip("Flip horizontally (mirror left-right).");
+        Tooltip(TR(GridFlipHorizontalTooltip));
         ImGui::SameLine();
-        if (ImGui::Button("^v##flipv", ImVec2(btnW, 24))) {
+        if (ImGui::Button(flipVLabel.c_str(), ImVec2(btnW, 24))) {
             if (m_callbacks.onFlipVertical)
                 m_callbacks.onFlipVertical(true);
         }
-        Tooltip("Flip vertically (mirror top-bottom).");
+        Tooltip(TR(GridFlipVerticalTooltip));
         ImGui::SameLine();
-        if (ImGui::Button("->|##rotcw", ImVec2(btnW, 24))) {
+        if (ImGui::Button(rotCWLabel.c_str(), ImVec2(btnW, 24))) {
             if (m_callbacks.onRotateGrid)
                 m_callbacks.onRotateGrid(1);
         }
-        Tooltip("Rotate 90 degrees clockwise.");
+        Tooltip(TR(GridRotateCWTooltip));
         ImGui::SameLine();
-        if (ImGui::Button("|<-##rotccw", ImVec2(btnW, 24))) {
+        if (ImGui::Button(rotCCWLabel.c_str(), ImVec2(btnW, 24))) {
             if (m_callbacks.onRotateGrid)
                 m_callbacks.onRotateGrid(-1);
         }
-        Tooltip("Rotate the grid 90 degrees counter-clockwise.");
+        Tooltip(TR(GridRotateCCWTooltip));
 
         ImGui::Separator();
-        ImGui::Text("Edge Conditions:");
+        ImGui::Text(TR(GridEdgeConditions));
 
-        const char* edgeModes[] = {"Periodic (Wrap)", "Clamp to Edge", "Mirror"};
+        const char* edgeModes[] = {TR(GridEdgePeriodic), TR(GridEdgeClamp), TR(GridEdgeMirror)};
 
-        ImGui::Combo("X Edge##edgex", &params.edgeModeX, edgeModes, IM_ARRAYSIZE(edgeModes));
-        Tooltip("Horizontal edge behavior:\n- Periodic: Wraps around (toroidal)\n- Clamp: Uses edge values\n- Mirror: Reflects at boundaries");
+        std::string edgeXLabel = std::string(TR(GridEdgeModeX)) + "##edgex";
+        std::string edgeYLabel = std::string(TR(GridEdgeModeY)) + "##edgey";
+        ImGui::Combo(edgeXLabel.c_str(), &params.edgeModeX, edgeModes, IM_ARRAYSIZE(edgeModes));
+        Tooltip(TR(GridEdgeModeXTooltip));
 
-        ImGui::Combo("Y Edge##edgey", &params.edgeModeY, edgeModes, IM_ARRAYSIZE(edgeModes));
-        Tooltip("Vertical edge behavior:\n- Periodic: Wraps around (toroidal)\n- Clamp: Uses edge values\n- Mirror: Reflects at boundaries");
+        ImGui::Combo(edgeYLabel.c_str(), &params.edgeModeY, edgeModes, IM_ARRAYSIZE(edgeModes));
+        Tooltip(TR(GridEdgeModeYTooltip));
 
         if (params.edgeModeX != 0 || params.edgeModeY != 0) {
             ImGui::Separator();
-            ImGui::Text("Edge Fade:");
+            ImGui::Text(TR(GridEdgeFade));
 
             if (params.edgeModeX != 0) {
-                ImGui::SliderFloat("X Fade##xfade", &params.edgeFadeX, 0.0f, 0.5f, "%.2f");
-                Tooltip("Fade distance at horizontal edges (0 = hard edge, 0.5 = half grid).");
+                std::string fadeXLabel = std::string(TR(GridEdgeFadeX)) + "##xfade";
+                ImGui::SliderFloat(fadeXLabel.c_str(), &params.edgeFadeX, 0.0f, 0.5f, "%.2f");
+                Tooltip(TR(GridEdgeFadeXTooltip));
             }
 
             if (params.edgeModeY != 0) {
-                ImGui::SliderFloat("Y Fade##yfade", &params.edgeFadeY, 0.0f, 0.5f, "%.2f");
-                Tooltip("Fade distance at vertical edges (0 = hard edge, 0.5 = half grid).");
+                std::string fadeYLabel = std::string(TR(GridEdgeFadeY)) + "##yfade";
+                ImGui::SliderFloat(fadeYLabel.c_str(), &params.edgeFadeY, 0.0f, 0.5f, "%.2f");
+                Tooltip(TR(GridEdgeFadeYTooltip));
             }
 
             ImGui::Separator();
-            const char* displayEdgeModes[] = {"Show Tiled", "Background Color", "Checker Pattern"};
-            ImGui::Combo("Outside Display##dispedge", &params.displayEdgeMode, displayEdgeModes, IM_ARRAYSIZE(displayEdgeModes));
-            Tooltip("How to display areas outside the grid:\n- Tiled: Repeats based on edge mode\n- Background: Shows background color\n- Checker: Shows a checker pattern");
+            const char* displayEdgeModes[] = {TR(GridShowTiled), TR(GridBackgroundColor), TR(GridCheckerPattern)};
+            std::string outsideLabel = std::string(TR(GridOutsideDisplay)) + "##dispedge";
+            ImGui::Combo(outsideLabel.c_str(), &params.displayEdgeMode, displayEdgeModes, IM_ARRAYSIZE(displayEdgeModes));
+            Tooltip(TR(GridOutsideDisplayTooltip));
         }
 
         ImGui::Spacing();
         ImGui::Separator();
         
-        if (ImGui::CollapsingHeader("Infinite World Mode##infworld")) {
-            ImGui::Checkbox("Enable Infinite World##infEnable", &params.infiniteWorldMode);
-            Tooltip("Enable exploration of an infinite procedural world.\nUse mouse drag (middle-click or Ctrl+right-click) to pan.\nEdge conditions become periodic (wrapping).");
+        std::string infWorldLabel = std::string(TR(InfiniteWorldMode)) + "##infworld";
+        if (ImGui::CollapsingHeader(infWorldLabel.c_str())) {
+            std::string infEnableLabel = std::string(TR(InfiniteWorldEnable)) + "##infEnable";
+            ImGui::Checkbox(infEnableLabel.c_str(), &params.infiniteWorldMode);
+            Tooltip(TR(InfiniteWorldEnableTooltip));
 
             if (params.infiniteWorldMode) {
                 params.edgeModeX = 0;
@@ -1344,46 +1254,52 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                 
                 ImGui::Spacing();
                 
-                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "World Settings:");
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), TR(InfiniteWorldSettings));
                 
                 const char* chunkSizes[] = {"64x64", "128x128", "256x256", "512x512"};
                 int chunkIdx = 0;
                 if (params.chunkSize == 128) chunkIdx = 1;
                 else if (params.chunkSize == 256) chunkIdx = 2;
                 else if (params.chunkSize == 512) chunkIdx = 3;
-                if (ImGui::Combo("Chunk Size##chunkSz", &chunkIdx, chunkSizes, 4)) {
+                std::string chunkSizeLabel = std::string(TR(InfiniteChunkSize)) + "##chunkSz";
+                if (ImGui::Combo(chunkSizeLabel.c_str(), &chunkIdx, chunkSizes, 4)) {
                     int sizes[] = {64, 128, 256, 512};
                     params.chunkSize = sizes[chunkIdx];
                 }
-                Tooltip("Size of each world chunk in cells.");
+                Tooltip(TR(InfiniteChunkSizeTooltip));
 
-                SliderIntWithInput("Load Radius##loadRad", &params.loadedChunksRadius, 1, 5);
-                Tooltip("Number of chunks to keep loaded around the view center.");
+                SliderIntWithInput((std::string(TR(InfiniteLoadRadius)) + "##loadRad").c_str(),
+                                   &params.loadedChunksRadius, 1, 5);
+                Tooltip(TR(InfiniteLoadRadiusTooltip));
 
-                SliderIntWithInput("Max Chunks##maxCh", &params.maxLoadedChunks, 9, 81);
-                Tooltip("Maximum number of chunks to keep in memory.");
+                SliderIntWithInput((std::string(TR(InfiniteMaxChunks)) + "##maxCh").c_str(),
+                                   &params.maxLoadedChunks, 9, 81);
+                Tooltip(TR(InfiniteMaxChunksTooltip));
 
                 ImGui::Spacing();
-                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "Navigation:");
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), TR(InfiniteNavigation));
                 
-                ImGui::Text("Chunk Position: (%d, %d)", params.viewChunkX, params.viewChunkY);
-                ImGui::Text("World Offset: (%.2f, %.2f)", params.panX, params.panY);
+                ImGui::Text(TR(InfiniteChunkPosition), params.viewChunkX, params.viewChunkY);
+                ImGui::Text(TR(InfiniteWorldOffset), params.panX, params.panY);
                 
                 float navBtnW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2) / 3.0f;
                 
                 ImGui::Dummy(ImVec2(navBtnW, 0)); ImGui::SameLine();
-                if (ImGui::Button("N##navN", ImVec2(navBtnW, 24))) {
+                std::string navNLabel = std::string(TR(InfiniteNavNorth)) + "##navN";
+                if (ImGui::Button(navNLabel.c_str(), ImVec2(navBtnW, 24))) {
                     params.viewChunkY++;
                     params.panY = 0.0f;
                 }
                 ImGui::SameLine(); ImGui::Dummy(ImVec2(navBtnW, 0));
                 
-                if (ImGui::Button("W##navW", ImVec2(navBtnW, 24))) {
+                std::string navWLabel = std::string(TR(InfiniteNavWest)) + "##navW";
+                if (ImGui::Button(navWLabel.c_str(), ImVec2(navBtnW, 24))) {
                     params.viewChunkX--;
                     params.panX = 0.0f;
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("Home##navHome", ImVec2(navBtnW, 24))) {
+                std::string navHomeLabel = std::string(TR(InfiniteHome)) + "##navHome";
+                if (ImGui::Button(navHomeLabel.c_str(), ImVec2(navBtnW, 24))) {
                     params.viewChunkX = 0;
                     params.viewChunkY = 0;
                     params.panX = 0.0f;
@@ -1391,204 +1307,225 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                     params.zoom = 1.0f;
                 }
                 ImGui::SameLine();
-                if (ImGui::Button("E##navE", ImVec2(navBtnW, 24))) {
+                std::string navELabel = std::string(TR(InfiniteNavEast)) + "##navE";
+                if (ImGui::Button(navELabel.c_str(), ImVec2(navBtnW, 24))) {
                     params.viewChunkX++;
                     params.panX = 0.0f;
                 }
                 
                 ImGui::Dummy(ImVec2(navBtnW, 0)); ImGui::SameLine();
-                if (ImGui::Button("S##navS", ImVec2(navBtnW, 24))) {
+                std::string navSLabel = std::string(TR(InfiniteNavSouth)) + "##navS";
+                if (ImGui::Button(navSLabel.c_str(), ImVec2(navBtnW, 24))) {
                     params.viewChunkY--;
                     params.panY = 0.0f;
                 }
                 
-                Tooltip("Navigate between chunks. Use mouse drag to pan within a chunk.");
+                Tooltip(TR(InfiniteNavigationTooltip));
                 
-                SliderFloatWithInput("Explore Speed##explSpd", &params.worldExploreSpeed, 0.1f, 5.0f, "%.1fx");
-                Tooltip("Speed multiplier for keyboard navigation.");
+                SliderFloatWithInput((std::string(TR(InfiniteExploreSpeed)) + "##explSpd").c_str(),
+                                    &params.worldExploreSpeed, 0.1f, 5.0f, "%.1fx");
+                Tooltip(TR(InfiniteExploreSpeedTooltip));
 
-                ImGui::Checkbox("Auto-Load Chunks##autoLoad", &params.autoLoadChunks);
-                Tooltip("Automatically load new chunks as you explore.");
+                std::string autoLoadLabel = std::string(TR(InfiniteAutoLoad)) + "##autoLoad";
+                ImGui::Checkbox(autoLoadLabel.c_str(), &params.autoLoadChunks);
+                Tooltip(TR(InfiniteAutoLoadTooltip));
 
                 ImGui::Spacing();
-                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "Display Options:");
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), TR(InfiniteDisplayOptions));
                 
-                ImGui::Checkbox("Show Chunk Grid##showChGrid", &params.chunkBoundaryVisible);
-                Tooltip("Display borders between chunks.");
+                std::string showChunkGridLabel = std::string(TR(InfiniteShowChunkGrid)) + "##showChGrid";
+                ImGui::Checkbox(showChunkGridLabel.c_str(), &params.chunkBoundaryVisible);
+                Tooltip(TR(InfiniteShowChunkGridTooltip));
 
-                SliderFloatWithInput("Edge Fade##edgeFade", &params.chunkFadeDistance, 0.0f, 4.0f, "%.1f");
-                Tooltip("Fade at world edges (0 = no fade).");
+                SliderFloatWithInput((std::string(TR(InfiniteEdgeFade)) + "##edgeFade").c_str(),
+                                    &params.chunkFadeDistance, 0.0f, 4.0f, "%.1f");
+                Tooltip(TR(InfiniteEdgeFadeTooltip));
 
-                const char* persistence[] = {"None (Clear)", "Preserve State", "Seed-Based"};
-                ImGui::Combo("Persistence##persist", &params.chunkPersistence, persistence, 3);
-                Tooltip("How chunk state is handled:\n- None: Chunks reset when unloaded\n- Preserve: Keeps state in memory\n- Seed-Based: Regenerates from seed");
+                const char* persistence[] = {TR(InfinitePersistenceNone), TR(InfinitePersistencePreserve), TR(InfinitePersistenceSeed)};
+                std::string persistLabel = std::string(TR(InfinitePersistence)) + "##persist";
+                ImGui::Combo(persistLabel.c_str(), &params.chunkPersistence, persistence, 3);
+                Tooltip(TR(InfinitePersistenceTooltip));
                 
                 ImGui::Spacing();
-                ImGui::TextDisabled("Tip: Middle-click or Ctrl+Right-click to pan");
-                ImGui::TextDisabled("Scroll wheel to zoom");
+                ImGui::TextDisabled(TR(InfinitePanTip));
+                ImGui::TextDisabled(TR(InfiniteScrollTip));
             }
         }
     }
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Drawing Tools", 3)) {
-        const char* toolModes[] = {"Brush (Living Cells)", "Obstacle (Barrier)"};
+    if (sectionHeader(TR(SectionDrawingTools), 3)) {
+        const char* toolModes[] = {TR(DrawToolBrush), TR(DrawToolObstacle)};
         int toolMode = params.wallEnabled ? 1 : 0;
-        if (ImGui::Combo("Tool Mode", &toolMode, toolModes, 2)) {
+        if (ImGui::Combo(TR(DrawToolMode), &toolMode, toolModes, 2)) {
             params.wallEnabled = (toolMode == 1);
             params.brushEnabled = true;
         }
-        Tooltip("Brush paints cells that evolve with the simulation.\nObstacle creates barriers where cells are held at a fixed value.");
+        Tooltip(TR(DrawToolModeTooltip));
 
-        ImGui::Checkbox("Enable Drawing", &params.brushEnabled);
-        Tooltip("Enable or disable drawing on the simulation grid.");
+        ImGui::Checkbox(TR(DrawEnableDrawing), &params.brushEnabled);
+        Tooltip(TR(DrawEnableDrawingTooltip));
 
         if (params.brushEnabled) {
             ImGui::Separator();
             
             if (params.wallEnabled) {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.6f, 0.2f, 1.0f));
-                ImGui::Text("OBSTACLE MODE ACTIVE");
+                ImGui::Text(TR(DrawObstacleModeActive));
                 ImGui::PopStyleColor();
             } else {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 1.0f, 1.0f));
-                ImGui::Text("BRUSH MODE ACTIVE");
+                ImGui::Text(TR(DrawBrushModeActive));
                 ImGui::PopStyleColor();
             }
 
-            if (ImGui::CollapsingHeader("Shape & Size", ImGuiTreeNodeFlags_DefaultOpen)) {
-                const char* shapeNames[] = {"Circle", "Square", "Diamond", "Ring", "Star (5pt)", "Star (6pt)", "Hexagon", "Cross", "Plus", "Gaussian Blob", "Noise Disc", "Gradient Disc"};
+            if (ImGui::CollapsingHeader(TR(DrawShapeSize), ImGuiTreeNodeFlags_DefaultOpen)) {
+                const char* shapeNames[] = {
+                    TR(DrawShapeCircle), TR(DrawShapeSquare), TR(DrawShapeDiamond), TR(DrawShapeRing),
+                    TR(DrawShapeStar5), TR(DrawShapeStar6), TR(DrawShapeHexagon), TR(DrawShapeCross),
+                    TR(DrawShapePlus), TR(DrawShapeGaussian), TR(DrawShapeNoiseDisc), TR(DrawShapeGradientDisc)
+                };
                 int shapeIdx = params.wallEnabled ? params.wallShape : params.brushShape;
-                if (ImGui::Combo("Shape", &shapeIdx, shapeNames, IM_ARRAYSIZE(shapeNames))) {
+                if (ImGui::Combo(TR(DrawShape), &shapeIdx, shapeNames, IM_ARRAYSIZE(shapeNames))) {
                     if (params.wallEnabled)
                         params.wallShape = shapeIdx;
                     else
                         params.brushShape = shapeIdx;
                 }
-                Tooltip("Shape of the brush/obstacle.\n- Ring: Hollow circle\n- Star: 5 or 6 pointed star\n- Hexagon: Hexagonal shape\n- Cross/Plus: Cross patterns\n- Gaussian Blob: Soft falloff\n- Noise Disc: Random texture\n- Gradient Disc: Linear gradient");
+                Tooltip(TR(DrawShapeTooltip));
 
-                ImGui::SliderInt("Size", &params.brushSize, 1, 100);
-                Tooltip("Size of the brush in cells.");
+                ImGui::SliderInt(TR(DrawSize), &params.brushSize, 1, 100);
+                Tooltip(TR(DrawSizeTooltip));
                 
                 params.wallThickness = static_cast<float>(params.brushSize);
 
                 if (!params.wallEnabled) {
-                    ImGui::SliderFloat("Falloff", &params.brushFalloff, 0.0f, 1.0f, "%.2f");
-                    Tooltip("Edge softness. 0 = hard edge, 1 = smooth fade.");
+                    ImGui::SliderFloat(TR(DrawFalloff), &params.brushFalloff, 0.0f, 1.0f, "%.2f");
+                    Tooltip(TR(DrawFalloffTooltip));
                 } else {
-                    ImGui::SliderFloat("Falloff", &params.wallFalloff, 0.0f, 1.0f, "%.2f");
-                    Tooltip("Edge softness for obstacle boundaries.");
+                    ImGui::SliderFloat(TR(DrawFalloff), &params.wallFalloff, 0.0f, 1.0f, "%.2f");
+                    Tooltip(TR(DrawFalloffTooltip));
                 }
             }
 
-            if (ImGui::CollapsingHeader("Draw Method", ImGuiTreeNodeFlags_DefaultOpen)) {
-                const char* drawModeNames[] = {"Freehand", "Line", "Circle", "Rectangle"};
-                ImGui::Combo("Draw Mode", &params.brushDrawMode, drawModeNames, IM_ARRAYSIZE(drawModeNames));
-                Tooltip("Freehand: Click and drag to draw\nLine: Click start, release at end\nCircle: Click center, drag radius\nRectangle: Click corner, drag to opposite corner");
+            if (ImGui::CollapsingHeader(TR(DrawMethod), ImGuiTreeNodeFlags_DefaultOpen)) {
+                const char* drawModeNames[] = {TR(DrawModeFreehand), TR(DrawModeLine), TR(DrawModeCircle), TR(DrawModeRectangle)};
+                ImGui::Combo(TR(DrawMethod), &params.brushDrawMode, drawModeNames, IM_ARRAYSIZE(drawModeNames));
+                Tooltip(TR(DrawModeTooltip));
 
                 if (params.brushDrawMode != 0) {
                     ImGui::Separator();
                     bool isDrawing = params.wallEnabled ? params.wallLineDrawing : params.brushLineDrawing;
                     if (isDrawing) {
-                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Drawing... (Right-click to cancel)");
+                        ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), TR(DrawDrawing));
                     } else {
-                        ImGui::TextDisabled("Click on grid to start drawing");
+                        ImGui::TextDisabled(TR(DrawClickToStart));
                     }
                 }
             }
 
             if (params.wallEnabled) {
-                if (ImGui::CollapsingHeader("Obstacle Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    ImGui::SliderFloat("Cell Value", &params.wallValue, 0.0f, 1.0f, "%.3f");
-                    Tooltip("Fixed value for cells inside obstacles.\n0.0 = dead/empty (blocks life)\n1.0 = fully alive (creates permanent life)");
+                if (ImGui::CollapsingHeader(TR(DrawObstacleSettings), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::SliderFloat(TR(DrawCellValue), &params.wallValue, 0.0f, 1.0f, "%.3f");
+                    Tooltip(TR(DrawCellValueTooltip));
 
                     ImGui::Separator();
                     float wallColor[4] = {params.wallR, params.wallG, params.wallB, params.wallA};
-                    if (ImGui::ColorEdit4("Display Color", wallColor)) {
+                    if (ImGui::ColorEdit4(TR(DrawDisplayColor), wallColor)) {
                         params.wallR = wallColor[0];
                         params.wallG = wallColor[1];
                         params.wallB = wallColor[2];
                         params.wallA = wallColor[3];
                     }
-                    Tooltip("Visual color of obstacles in the display.");
+                    Tooltip(TR(DrawDisplayColorTooltip));
 
                     if (params.numChannels > 1) {
                         ImGui::Separator();
-                        ImGui::Text("Affected Channels:");
-                        ImGui::Checkbox("Ch0 (R)", &params.wallAffectsCh0);
+                        ImGui::Text(TR(DrawAffectedChannels));
+                        std::string ch0Label = std::string(TR(CommonRed)) + " (Ch0)";
+                        ImGui::Checkbox(ch0Label.c_str(), &params.wallAffectsCh0);
                         ImGui::SameLine();
                         if (params.numChannels >= 2) {
-                            ImGui::Checkbox("Ch1 (G)", &params.wallAffectsCh1);
+                            std::string ch1Label = std::string(TR(CommonGreen)) + " (Ch1)";
+                            ImGui::Checkbox(ch1Label.c_str(), &params.wallAffectsCh1);
                             ImGui::SameLine();
                         }
                         if (params.numChannels >= 3) {
-                            ImGui::Checkbox("Ch2 (B)", &params.wallAffectsCh2);
+                            std::string ch2Label = std::string(TR(CommonBlue)) + " (Ch2)";
+                            ImGui::Checkbox(ch2Label.c_str(), &params.wallAffectsCh2);
                         }
-                        Tooltip("Which channels the obstacle affects.");
+                        Tooltip(TR(DrawAffectedChannelsTooltip));
                     }
 
-                    const char* wallBlendNames[] = {"Replace", "Max", "Replace If Stronger", "Blend", "Erase"};
-                    ImGui::Combo("Blend Mode", &params.wallBlendMode, wallBlendNames, IM_ARRAYSIZE(wallBlendNames));
-                    Tooltip("Replace: Overwrite existing\nMax: Keep stronger value\nBlend: Smooth blend\nErase: Remove obstacles");
+                    const char* wallBlendNames[] = {TR(DrawBlendReplace), TR(DrawBlendMax), TR(DrawBlendReplaceStronger), TR(DrawBlendBlend), TR(DrawBlendErase)};
+                    ImGui::Combo(TR(DrawBlendMode), &params.wallBlendMode, wallBlendNames, IM_ARRAYSIZE(wallBlendNames));
+                    Tooltip(TR(DrawBlendModeTooltip));
                 }
 
                 ImGui::Separator();
-                if (ImGui::Button("Clear All Obstacles", ImVec2(-1, 0))) {
+                if (ImGui::Button(TR(DrawClearAllObstacles), ImVec2(-1, 0))) {
                     if (m_callbacks.onClearWalls)
                         m_callbacks.onClearWalls();
                 }
-                Tooltip("Remove all obstacles from the simulation.");
+                Tooltip(TR(DrawClearAllObstaclesTooltip));
             } else {
-                if (ImGui::CollapsingHeader("Brush Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    const char* modeNames[] = {"Set", "Add", "Subtract", "Max", "Min", "Erase"};
-                    ImGui::Combo("Paint Mode", &params.brushMode, modeNames, IM_ARRAYSIZE(modeNames));
-                    Tooltip("Set: Replace cell value\nAdd: Add to existing\nSubtract: Subtract from existing\nMax/Min: Keep larger/smaller\nErase: Set to zero");
+                if (ImGui::CollapsingHeader(TR(DrawBrushSettings), ImGuiTreeNodeFlags_DefaultOpen)) {
+                    const char* modeNames[] = {TR(DrawPaintModeSet), TR(DrawPaintModeAdd), TR(DrawPaintModeSubtract), TR(DrawPaintModeMax), TR(DrawPaintModeMin), TR(DrawPaintModeErase)};
+                    ImGui::Combo(TR(DrawPaintMode), &params.brushMode, modeNames, IM_ARRAYSIZE(modeNames));
+                    Tooltip(TR(DrawPaintModeTooltip));
 
-                    ImGui::SliderFloat("Value", &params.brushValue, 0.0f, 1.0f, "%.2f");
-                    Tooltip("Cell value to paint.");
+                    ImGui::SliderFloat(TR(DrawBrushValue), &params.brushValue, 0.0f, 1.0f, "%.2f");
+                    Tooltip(TR(DrawBrushValueTooltip));
 
-                    ImGui::SliderFloat("Strength", &params.brushStrength, 0.0f, 2.0f, "%.2f");
-                    Tooltip("Intensity multiplier.");
+                    ImGui::SliderFloat(TR(DrawStrength), &params.brushStrength, 0.0f, 2.0f, "%.2f");
+                    Tooltip(TR(DrawStrengthTooltip));
 
                     if (params.numChannels > 1) {
                         ImGui::Separator();
-                        const char* channelNames[] = {"Red (Ch0)", "Green (Ch1)", "Blue (Ch2)", "All Channels"};
+                        std::string chR = std::string(TR(CommonRed)) + " (Ch0)";
+                        std::string chG = std::string(TR(CommonGreen)) + " (Ch1)";
+                        std::string chB = std::string(TR(CommonBlue)) + " (Ch2)";
+                        std::string chAll = std::string(TR(CommonAll)) + " " + TR(CommonChannel) + "s";
+                        const char* channelNames[] = {chR.c_str(), chG.c_str(), chB.c_str(), chAll.c_str()};
                         int maxCh = (std::min)(params.numChannels, 3);
-                        ImGui::Combo("Target Channel", &params.brushChannel, channelNames, maxCh + 1);
-                        Tooltip("Which channel(s) to paint.");
+                        ImGui::Combo(TR(DrawTargetChannel), &params.brushChannel, channelNames, maxCh + 1);
+                        Tooltip(TR(DrawTargetChannelTooltip));
                     }
                 }
 
-                if (ImGui::CollapsingHeader("Symmetry")) {
-                    ImGui::Checkbox("Mirror X", &params.brushSymmetryX);
+                if (ImGui::CollapsingHeader(TR(DrawSymmetry))) {
+                    ImGui::Checkbox(TR(DrawMirrorX), &params.brushSymmetryX);
                     ImGui::SameLine();
-                    ImGui::Checkbox("Mirror Y", &params.brushSymmetryY);
-                    Tooltip("Mirror strokes across the grid center.");
+                    ImGui::Checkbox(TR(DrawMirrorY), &params.brushSymmetryY);
+                    Tooltip(TR(DrawMirrorTooltip));
 
-                    ImGui::Checkbox("Radial Symmetry", &params.brushSymmetryRadial);
+                    ImGui::Checkbox(TR(DrawRadialSymmetry), &params.brushSymmetryRadial);
                     if (params.brushSymmetryRadial) {
                         ImGui::SameLine();
                         ImGui::SetNextItemWidth(80);
                         ImGui::SliderInt("##radialcount", &params.brushRadialCount, 2, 16);
                     }
-                    Tooltip("Rotational symmetry around grid center.");
+                    Tooltip(TR(DrawRadialSymmetryTooltip));
                 }
             }
 
-            if (ImGui::CollapsingHeader("Stroke Spacing##brushSpacingHeader")) {
-                ImGui::SliderFloat("Brush Spacing##brushSpacingSlider", &params.brushSpacing, 0.1f, 5.0f, "%.1f");
-                Tooltip("Distance between stroke applications when dragging.");
+            std::string spacingHeader = std::string(TR(DrawStrokeSpacing)) + "##brushSpacingHeader";
+            if (ImGui::CollapsingHeader(spacingHeader.c_str())) {
+                std::string spacingSlider = std::string(TR(DrawBrushSpacing)) + "##brushSpacingSlider";
+                ImGui::SliderFloat(spacingSlider.c_str(), &params.brushSpacing, 0.1f, 5.0f, "%.1f");
+                Tooltip(TR(DrawBrushSpacingTooltip));
 
-                ImGui::Checkbox("Smooth Interpolation##brushSmooth", &params.brushSmooth);
-                Tooltip("Interpolate positions when moving quickly.");
+                std::string smoothLabel = std::string(TR(DrawSmoothInterpolation)) + "##brushSmooth";
+                ImGui::Checkbox(smoothLabel.c_str(), &params.brushSmooth);
+                Tooltip(TR(DrawSmoothInterpolationTooltip));
             }
         }
     }
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Presets & Initialization", 4, true)) {
+    if (sectionHeader(TR(SectionPresetsInit), 4, true)) {
         const auto& presets = getPresets();
         const auto& categories = getPresetCategories();
 
@@ -1596,10 +1533,10 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         for (const auto& c : categories)
             catPtrs.push_back(c.c_str());
 
-        ImGui::Combo("Category", &m_selectedCategory, catPtrs.data(),
+        ImGui::Combo(TR(PresetsCategory), &m_selectedCategory, catPtrs.data(),
                      static_cast<int>(catPtrs.size()));
 
-        ImGui::InputTextWithHint("##search", "Search presets...", m_presetSearchBuf, sizeof(m_presetSearchBuf));
+        ImGui::InputTextWithHint("##search", TR(PresetsSearchHint), m_presetSearchBuf, sizeof(m_presetSearchBuf));
 
         std::vector<int> filteredIndices;
         std::vector<std::string> filteredNames;
@@ -1648,122 +1585,137 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         if (m_selectedPreset >= 0 && m_selectedPreset < static_cast<int>(presets.size())) {
             const auto& cp = presets[m_selectedPreset];
             ImGui::Separator();
-            ImGui::Text("Selected: %s", cp.name);
+            ImGui::Text(TR(PresetsSelected), cp.name);
 
             float previewSize = 60.0f;
             ImGui::BeginGroup();
-            ImGui::TextDisabled("Species");
+            ImGui::TextDisabled(TR(PresetsSpecies));
             drawPresetPreview(cp, previewSize, params);
             ImGui::EndGroup();
             ImGui::SameLine();
             ImGui::BeginGroup();
-            ImGui::TextDisabled("Kernel");
+            ImGui::TextDisabled(TR(PresetsKernel));
             drawKernelPreview(kernelTex, kernelDiam, previewSize);
             ImGui::EndGroup();
             ImGui::SameLine();
             ImGui::BeginGroup();
             bool hasCells = (cp.cellData != nullptr) || (cp.speciesFile != nullptr);
             ImGui::TextDisabled("%s", cp.category);
-            ImGui::TextDisabled("%s", hasCells ? "Species" : "Procedural");
-            ImGui::TextDisabled("R=%d rings=%d", cp.radius, cp.numRings);
-            ImGui::TextDisabled("mu=%.3f", cp.mu);
-            ImGui::TextDisabled("sigma=%.4f", cp.sigma);
+            ImGui::TextDisabled("%s", hasCells ? TR(PresetsSpecies) : TR(PresetsProcedural));
+            ImGui::TextDisabled(TR(PresetsRadiusRings), cp.radius, cp.numRings);
+            ImGui::TextDisabled(TR(PresetsMu), cp.mu);
+            ImGui::TextDisabled(TR(PresetsSigma), cp.sigma);
             ImGui::EndGroup();
         }
 
-        ImGui::TextDisabled("%d presets (%d shown)",
+        ImGui::TextDisabled(TR(PresetsCountShown),
             static_cast<int>(presets.size()), static_cast<int>(filteredIndices.size()));
 
         float btnW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2) / 3.0f;
-        if (ImGui::Button("Randomize", ImVec2(btnW, 28))) {
+        if (ImGui::Button(TR(PresetsRandomize), ImVec2(btnW, 28))) {
             if (m_callbacks.onRandomize) m_callbacks.onRandomize();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Clear", ImVec2(btnW, 28))) {
+        if (ImGui::Button(TR(PresetsClear), ImVec2(btnW, 28))) {
             if (m_callbacks.onClear) m_callbacks.onClear();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Reset Preset", ImVec2(btnW, 28))) {
+        if (ImGui::Button(TR(PresetsResetPreset), ImVec2(btnW, 28))) {
             if (m_callbacks.onPresetSelected)
                 m_callbacks.onPresetSelected(m_selectedPreset);
         }
 
         ImGui::Spacing();
-        ImGui::SeparatorText("Placement");
+        ImGui::SeparatorText(TR(PresetsPlacement));
 
         const char* placementNames[] = {
-            "Center", "Top-Left", "Top-Right", "Bottom-Left", "Bottom-Right",
-            "Top", "Bottom", "Left", "Right", "Random", "Grid", "Two-Place", "Scatter"
+            TR(PresetsPlacementCenter), TR(PresetsPlacementTopLeft), TR(PresetsPlacementTopRight),
+            TR(PresetsPlacementBottomLeft), TR(PresetsPlacementBottomRight),
+            TR(PresetsPlacementTop), TR(PresetsPlacementBottom), TR(PresetsPlacementLeft),
+            TR(PresetsPlacementRight), TR(PresetsPlacementRandom), TR(PresetsPlacementGrid),
+            TR(PresetsPlacementTwoPlace), TR(PresetsPlacementScatter)
         };
-        ImGui::Combo("Placement", &params.placementMode, placementNames, 13);
+        ImGui::Combo(TR(PresetsPlacement), &params.placementMode, placementNames, 13);
 
-        SliderIntWithInput("Count", &params.placementCount, 1, 50);
+        SliderIntWithInput(TR(PresetsCount), &params.placementCount, 1, 50);
 
-        SliderFloatWithInput("Scale", &params.placementScale, 0.1f, 3.0f, "%.2f");
+        SliderFloatWithInput(TR(PresetsScale), &params.placementScale, 0.1f, 3.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.1f, 3.0f, r, 1, nullptr, 0); snapFloat(params.placementScale, 0.1f, 3.0f, r, 1); }
 
-        const char* rotNames[] = {"0 deg", "90 deg", "180 deg", "270 deg"};
-        ImGui::Combo("Rotation", &params.placementRotation, rotNames, 4);
+        const char* rotNames[] = {TR(PresetsRotation0), TR(PresetsRotation90), TR(PresetsRotation180), TR(PresetsRotation270)};
+        ImGui::Combo(TR(PresetsRotation), &params.placementRotation, rotNames, 4);
 
-        SliderFloatWithInput("Margin", &params.placementMargin, 0.0f, 0.25f, "%.3f");
+        SliderFloatWithInput(TR(PresetsMargin), &params.placementMargin, 0.0f, 0.25f, "%.3f");
 
         if (params.placementMode >= 9) {
-            ImGui::Checkbox("Random Flip", &params.placementRandomFlip);
+            ImGui::Checkbox(TR(PresetsRandomFlip), &params.placementRandomFlip);
         } else {
-            ImGui::Checkbox("Flip Horizontal##placeFlipH", &params.placementFlipH);
+            std::string flipHLabel = std::string(TR(PresetsFlipHorizontal)) + "##placeFlipH";
+            ImGui::Checkbox(flipHLabel.c_str(), &params.placementFlipH);
             ImGui::SameLine();
-            ImGui::Checkbox("Flip Vertical##placeFlipV", &params.placementFlipV);
+            std::string flipVLabel = std::string(TR(PresetsFlipVertical)) + "##placeFlipV";
+            ImGui::Checkbox(flipVLabel.c_str(), &params.placementFlipV);
         }
 
         if (params.placementCount > 1 && params.placementMode < 9) {
-            SliderFloatWithInput("Place Spacing##placeSpacing", &params.placementSpacing, 0.01f, 0.5f, "%.3f");
+            std::string spacingLabel = std::string(TR(PresetsPlaceSpacing)) + "##placeSpacing";
+            SliderFloatWithInput(spacingLabel.c_str(), &params.placementSpacing, 0.01f, 0.5f, "%.3f");
         }
 
         if (params.placementMode == static_cast<int>(PlacementMode::Scatter)) {
-            SliderIntWithInput("Min Separation##minSep", &params.placementMinSeparation, 0, 100);
+            std::string minSepLabel = std::string(TR(PresetsMinSeparation)) + "##minSep";
+            SliderIntWithInput(minSepLabel.c_str(), &params.placementMinSeparation, 0, 100);
         }
 
-        ImGui::Checkbox("Clear Grid First##clearFirst", &params.placementClearFirst);
+        std::string clearFirstLabel = std::string(TR(PresetsClearGridFirst)) + "##clearFirst";
+        ImGui::Checkbox(clearFirstLabel.c_str(), &params.placementClearFirst);
 
         ImGui::Spacing();
-        if (ImGui::Button("Apply Placement", ImVec2(-1, 28))) {
+        if (ImGui::Button(TR(PresetsApplyPlacement), ImVec2(-1, 28))) {
             if (m_callbacks.onReset) m_callbacks.onReset();
         }
     }
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Simulation", 5, true)) {
-        ImGui::Checkbox("Paused (Space)", &paused);
+    if (sectionHeader(TR(SectionSimulation), 5, true)) {
+        ImGui::Checkbox(TR(SimPausedLabel), &paused);
         ImGui::SameLine();
-        ImGui::TextDisabled("Hold S to step");
+        ImGui::TextDisabled(TR(SimHoldToStep));
 
-        SliderIntWithInput("Steps/Frame", &stepsPerFrame, 1, 50);
+        SliderIntWithInput(TR(SimStepsPerFrame), &stepsPerFrame, 1, 50);
         { int r[] = {1}; int g[] = {5, 10, 20}; drawSliderMarkersInt(1, 50, r, 1, g, 3); snapInt(stepsPerFrame, 1, 50, r, 1); snapInt(stepsPerFrame, 1, 50, g, 3); }
-        Tooltip("Number of simulation steps per rendered frame. Higher values speed up evolution at the cost of frame rate. Keys 1-5 for quick set.");
+        Tooltip(TR(SimStepsPerFrameTooltip));
 
-        ImGui::Text("Step: %d", stepCount);
+        ImGui::Text(TR(SimStepFormat), stepCount);
         ImGui::SameLine();
-        ImGui::Text("Sim: %.2f ms", simTimeMs);
+        ImGui::Text(TR(SimTimeMs), simTimeMs);
     }
     popSectionColor();
     pushSectionColor(sec++);
-    if (sectionHeader("Growth Function", 6, true)) {
-        const char* growthNames[] = {"Lenia (Gaussian)", "Step", "Game of Life", "SmoothLife", "Polynomial", "Exponential", "Double Peak", "Asymptotic", "Soft Clip", "Larger-than-Life", "Quad4 (Polynomial)"};
-        ImGui::Combo("Growth Type", &params.growthType, growthNames, 11);
-        Tooltip("Selects the mathematical function mapping convolution potential to growth rate. Gaussian is standard Lenia. Step creates sharp boundaries. Game of Life uses discrete neighbor counting.");
+    if (sectionHeader(TR(SectionGrowthFunction), 6, true)) {
+        const char* growthNames[] = {
+            TR(GrowthTypeLenia), TR(GrowthTypeStep), TR(GrowthTypeGameOfLife), TR(GrowthTypeSmoothLife),
+            TR(GrowthTypePolynomial), TR(GrowthTypeExponential), TR(GrowthTypeDoublePeak), TR(GrowthTypeAsymptotic),
+            TR(GrowthTypeSoftClip), TR(GrowthTypeLargerThanLife), TR(GrowthTypeQuad4)
+        };
+        ImGui::Combo(TR(GrowthType), &params.growthType, growthNames, 11);
+        Tooltip(TR(GrowthTypeTooltip));
 
-        SliderFloatWithInput("mu##growth", &params.mu, 0.001f, 1.0f);
+        std::string muLabel = std::string(TR(GrowthMu)) + "##growth";
+        SliderFloatWithInput(muLabel.c_str(), &params.mu, 0.001f, 1.0f);
         { float r[] = {0.15f}; float g[] = {0.29f, 0.35f}; drawSliderMarkers(0.001f, 1.0f, r, 1, g, 2); float all[] = {0.15f, 0.29f, 0.35f}; snapFloat(params.mu, 0.001f, 1.0f, all, 3); }
-        Tooltip("Center of the growth function peak (mu). The potential value at which maximum growth occurs. Typical values: 0.15 for Orbium, 0.29 for Scutium, 0.35 for larger species.");
+        Tooltip(TR(GrowthMuTooltip));
 
-        SliderFloatWithInput("sigma##growth", &params.sigma, 0.001f, 0.5f);
+        std::string sigmaLabel = std::string(TR(GrowthSigma)) + "##growth";
+        SliderFloatWithInput(sigmaLabel.c_str(), &params.sigma, 0.001f, 0.5f);
         { float r[] = {0.017f}; float g[] = {0.015f, 0.045f}; drawSliderMarkers(0.001f, 0.5f, r, 1, g, 2); float all[] = {0.017f, 0.015f, 0.045f}; snapFloat(params.sigma, 0.001f, 0.5f, all, 3); }
-        Tooltip("Width of the growth function peak (sigma). Narrower values create more selective growth. Small sigma = fragile but precise patterns. Large sigma = robust but blobby.");
+        Tooltip(TR(GrowthSigmaTooltip));
 
-        SliderFloatWithInput("dt##timestep", &params.dt, 0.001f, 2.0f);
+        std::string dtLabel = std::string(TR(GrowthDt)) + "##timestep";
+        SliderFloatWithInput(dtLabel.c_str(), &params.dt, 0.001f, 2.0f);
         { float r[] = {0.25f}; float g[] = {0.1f, 0.5f, 1.0f}; drawSliderMarkers(0.001f, 2.0f, r, 1, g, 3); float all[] = {0.25f, 0.1f, 0.5f, 1.0f}; snapFloat(params.dt, 0.001f, 2.0f, all, 4); }
-        Tooltip("Time step per simulation step. Smaller dt = smoother but slower evolution. 0.1 is standard Lenia, 0.5 for multi-channel aquarium, 1.0 for Game of Life.");
+        Tooltip(TR(GrowthDtTooltip));
 
         ImGui::Spacing();
         drawGrowthPlot(params);
@@ -1771,15 +1723,21 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Kernel", 7, true)) {
+    if (sectionHeader(TR(SectionKernel), 7, true)) {
         bool kernelDirty = false;
         bool isMulti = (params.numChannels > 1);
 
         if (!isMulti) {
-            const char* kernelNames[] = {"Gaussian Shell", "Bump4", "Multiring (Gauss)", "Multiring (Bump4)", "Game of Life", "Step Unimodal", "Cosine Shell", "Mexican Hat", "Quad4", "Multiring (Quad4)", "Cone", "Torus (Dual Ring)", "Ring (Sharp)", "Gaussian Mixture", "Sinc", "Wavelet (Ricker)", "Negative Ring"};
-            if (ImGui::Combo("Kernel Type", &params.kernelType, kernelNames, 17))
+            const char* kernelNames[] = {
+                TR(KernelGaussianShell), TR(KernelBump4), TR(KernelMultiringGauss), TR(KernelMultiringBump4),
+                TR(KernelGameOfLife), TR(KernelStepUnimodal), TR(KernelCosineShell), TR(KernelMexicanHat),
+                TR(KernelQuad4), TR(KernelMultiringQuad4), TR(KernelCone), TR(KernelTorusDualRing),
+                TR(KernelRingSharp), TR(KernelGaussianMixture), TR(KernelSinc), TR(KernelWaveletRicker),
+                TR(KernelNegativeRing)
+            };
+            if (ImGui::Combo(TR(KernelType), &params.kernelType, kernelNames, 17))
                 kernelDirty = true;
-            Tooltip("Shape of the convolution kernel.\n- Gaussian Shell: Standard Lenia\n- Bump4: Bert Chan's exponential bump\n- Quad4: Polynomial (4r(1-r))^4\n- Cone: Linear falloff\n- Torus: Dual concentric rings\n- Ring: Sharp single ring\n- Gaussian Mixture: Three overlapping Gaussians\n- Sinc: sin(x)/x oscillating kernel\n- Wavelet (Ricker): Mexican hat wavelet\n- Negative Ring: Outer inhibitory ring");
+            Tooltip(TR(KernelTypeTooltip));
 
             if (!m_kernelPresetNames.empty()) {
                 auto kpGetter = [](void* data, int idx, const char** out) -> bool {
@@ -1789,7 +1747,7 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                     return true;
                 };
                 int prevKP = m_selectedKernelPreset;
-                if (ImGui::Combo("Kernel Preset", &m_selectedKernelPreset, kpGetter,
+                if (ImGui::Combo(TR(KernelPreset), &m_selectedKernelPreset, kpGetter,
                                  &m_kernelPresetNames, static_cast<int>(m_kernelPresetNames.size()), 10)) {
                     if (m_selectedKernelPreset != prevKP && m_callbacks.onKernelPresetSelected)
                         m_callbacks.onKernelPresetSelected(m_selectedKernelPreset);
@@ -1798,11 +1756,12 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         }
 
         int prevR = params.radius;
-        if (SliderIntWithInput("Radius (R)", &params.radius, 1, 128)) {
+        std::string radiusLabel = std::string(TR(KernelRadius)) + " (R)";
+        if (SliderIntWithInput(radiusLabel.c_str(), &params.radius, 1, 128)) {
             kernelDirty = (params.radius != prevR);
         }
         { int r[] = {13}; int g[] = {10, 12, 18, 26, 52}; drawSliderMarkersInt(1, 128, r, 1, g, 5); snapInt(params.radius, 1, 128, r, 1); snapInt(params.radius, 1, 128, g, 5); }
-        Tooltip("Kernel radius in cells. Determines the range of interaction. Larger radii create more complex and larger patterns but are slower. 13 is standard for Orbium, 10-12 for multi-channel.");
+        Tooltip(TR(KernelRadiusTooltip));
         if (params.radius != prevR) {
             kernelDirty = true;
             if (isMulti) {
@@ -1816,60 +1775,64 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         if (!isMulti) {
             if (params.kernelType != 4) {
                 int prevRings = params.numRings;
-                if (SliderIntWithInput("Rings", &params.numRings, 1, 8)) {
+                if (SliderIntWithInput(TR(KernelRings), &params.numRings, 1, 8)) {
                     if (params.numRings != prevRings) kernelDirty = true;
                 }
-                Tooltip("Number of concentric rings in the kernel. Each ring can have its own weight (B value). More rings enable richer interactions. Standard Lenia uses 1 ring.");
+                Tooltip(TR(KernelRingsTooltip));
 
                 if (params.numRings > 1) {
                     ImGui::Indent(10.0f);
                     for (int i = 0; i < params.numRings && i < 16; ++i) {
                         char label[32];
-                        std::snprintf(label, sizeof(label), "B%d##ring", i);
-                        if (ImGui::SliderFloat(label, &params.ringWeights[i], 0.0f, 1.0f, "%.3f"))
+                        std::snprintf(label, sizeof(label), TR(KernelRingWeight), i);
+                        std::string ringLabel = std::string(label) + "##ring" + std::to_string(i);
+                        if (ImGui::SliderFloat(ringLabel.c_str(), &params.ringWeights[i], 0.0f, 1.0f, "%.3f"))
                             kernelDirty = true;
-                        Tooltip("Weight of this ring in the kernel. Controls the relative contribution of this distance band to the convolution potential.");
+                        char tooltipBuf[64];
+                        std::snprintf(tooltipBuf, sizeof(tooltipBuf), TR(KernelRingWeightTooltip), i);
+                        Tooltip(tooltipBuf);
                     }
                     ImGui::Unindent(10.0f);
                 }
             }
             
             ImGui::Spacing();
-            if (ImGui::CollapsingHeader("Advanced Kernel##advkernel")) {
-                if (ImGui::SliderFloat("Anisotropy", &params.kernelAnisotropy, 0.0f, 1.0f, "%.2f")) {
+            std::string advLabel = std::string(TR(KernelAdvanced)) + "##advkernel";
+            if (ImGui::CollapsingHeader(advLabel.c_str())) {
+                if (ImGui::SliderFloat(TR(KernelAnisotropy), &params.kernelAnisotropy, 0.0f, 1.0f, "%.2f")) {
                     kernelDirty = true;
                 }
-                Tooltip("Directional asymmetry strength. 0 = isotropic (symmetric), 1 = strongly directional.");
+                Tooltip(TR(KernelAnisotropyTooltip));
                 
                 if (params.kernelAnisotropy > 0.01f) {
-                    if (ImGui::SliderFloat("Direction", &params.kernelAnisotropyAngle, 0.0f, 360.0f, "%.0f°")) {
+                    if (ImGui::SliderFloat(TR(KernelDirection), &params.kernelAnisotropyAngle, 0.0f, 360.0f, "%.0f°")) {
                         kernelDirty = true;
                     }
-                    Tooltip("Direction of anisotropy in degrees.");
+                    Tooltip(TR(KernelDirectionTooltip));
                 }
                 
-                ImGui::Checkbox("Time-Varying", &params.kernelTimeVarying);
-                Tooltip("Enable kernel pulsing/breathing effect over time.");
+                ImGui::Checkbox(TR(KernelTimeVarying), &params.kernelTimeVarying);
+                Tooltip(TR(KernelTimeVaryingTooltip));
                 
                 if (params.kernelTimeVarying) {
-                    if (ImGui::SliderFloat("Pulse Frequency", &params.kernelPulseFrequency, 0.0f, 5.0f, "%.2f")) {
+                    if (ImGui::SliderFloat(TR(KernelPulseFrequency), &params.kernelPulseFrequency, 0.0f, 5.0f, "%.2f")) {
                         kernelDirty = true;
                     }
-                    Tooltip("How fast the kernel pulses (cycles per time unit).");
+                    Tooltip(TR(KernelPulseFrequencyTooltip));
                 }
                 
-                const char* modifierNames[] = {"None", "Negative Outer Ring"};
-                if (ImGui::Combo("Modifier", &params.kernelModifier, modifierNames, 2)) {
+                const char* modifierNames[] = {TR(KernelModifierNone), TR(KernelModifierNegativeRing)};
+                if (ImGui::Combo(TR(KernelModifier), &params.kernelModifier, modifierNames, 2)) {
                     kernelDirty = true;
                 }
-                Tooltip("None: Standard kernel\nNegative Outer Ring: Adds inhibitory effect at outer edges");
+                Tooltip(TR(KernelModifierTooltip));
             }
         }
 
         if (kernelDirty && m_callbacks.onKernelChanged)
             m_callbacks.onKernelChanged();
 
-        ImGui::Checkbox("Show Kernel Preview", &params.showKernelPreview);
+        ImGui::Checkbox(TR(KernelShowPreview), &params.showKernelPreview);
         if (params.showKernelPreview) {
             if (isMulti) {
                 const char* chLabel[] = {"R", "G", "B"};
@@ -1877,7 +1840,9 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                     auto& rule = params.kernelRules[r];
                     int src = std::clamp(rule.sourceChannel, 0, params.numChannels - 1);
                     int dst = std::clamp(rule.destChannel, 0, params.numChannels - 1);
-                    ImGui::TextDisabled("Rule %d: %s -> %s", r, chLabel[src], chLabel[dst]);
+                    ImGui::TextDisabled(TR(MultiRule), r);
+                    ImGui::SameLine(0, 6);
+                    ImGui::TextDisabled("%s -> %s", chLabel[src], chLabel[dst]);
                     if (m_callbacks.getRuleKernelInfo) {
                         auto [tex, diam] = m_callbacks.getRuleKernelInfo(r);
                         if (tex > 0 && diam > 0)
@@ -1890,26 +1855,26 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         }
 
         if (isMulti) {
-            ImGui::TextDisabled("Per-rule kernel settings in Multi-Channel section.");
+            ImGui::TextDisabled(TR(KernelPerRuleNote));
         }
     }
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Multi-Channel", 8)) {
+    if (sectionHeader(TR(SectionMultiChannel), 8)) {
         int prevCh = params.numChannels;
-        const char* chNames[] = {"1 (Single)", "3 (RGB)"};
+        const char* chNames[] = {TR(MultiChannelsSingle), TR(MultiChannelsRGB)};
         int chIdx = (params.numChannels > 1) ? 1 : 0;
-        if (ImGui::Combo("Channels", &chIdx, chNames, 2)) {
+        if (ImGui::Combo(TR(MultiChannels), &chIdx, chNames, 2)) {
             int newCh = (chIdx == 1) ? 3 : 1;
             if (newCh != prevCh && m_callbacks.onChannelModeChanged) {
                 m_callbacks.onChannelModeChanged(newCh);
             }
         }
-        Tooltip("Number of independent state channels. Single = classic Lenia. RGB = 3 channels (R/G/B) with cross-channel kernel rules, used for multi-species like Aquarium.");
+        Tooltip(TR(MultiChannelsTooltip));
 
         if (params.numChannels > 1) {
-            ImGui::TextColored(ImVec4(0.7f,0.9f,1.0f,1.0f), "Rules: %d", params.numKernelRules);
+            ImGui::TextColored(ImVec4(0.7f,0.9f,1.0f,1.0f), TR(MultiRulesCount), params.numKernelRules);
             ImGui::SameLine(0, 10);
             if (ImGui::SmallButton("+##addRule")) {
                 if (params.numKernelRules < 16) {
@@ -1918,7 +1883,6 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                     nr.mu = 0.15f;
                     nr.sigma = 0.015f;
                     nr.growthStrength = 1.0f;
-                    nr.radiusFraction = 1.0f;
                     nr.numRings = 1;
                     nr.ringWeights[0] = 1.0f;
                     nr.sourceChannel = 0;
@@ -1928,13 +1892,13 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                     params.numKernelRules++;
                 }
             }
-            Tooltip("Add a new kernel rule.");
+            Tooltip(TR(MultiAddRuleTooltip));
             ImGui::SameLine(0, 5);
             if (ImGui::SmallButton("-##removeRule")) {
                 if (params.numKernelRules > 0)
                     params.numKernelRules--;
             }
-            Tooltip("Remove the last kernel rule.");
+            Tooltip(TR(MultiRemoveRuleTooltip));
 
             ImGui::Separator();
 
@@ -1946,7 +1910,7 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
             const char* chLabels[3] = {"R", "G", "B"};
 
             if (params.numKernelRules > 0) {
-                ImGui::Text("Channel Routing:");
+                ImGui::Text(TR(MultiChannelRouting));
                 ImGui::Indent(10.0f);
                 for (int r = 0; r < params.numKernelRules && r < 16; ++r) {
                     auto& rule = params.kernelRules[r];
@@ -1972,19 +1936,21 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                     int d = std::clamp(rule.destChannel, 0, 2);
 
                     char hdr[96];
-                    std::snprintf(hdr, sizeof(hdr), "Rule %d (%s -> %s) | m=%.3f s=%.4f h=%.1f##rule%d",
-                                  r, chLabels[s], chLabels[d], rule.mu, rule.sigma, rule.growthStrength, r);
+                    std::snprintf(hdr, sizeof(hdr), TR(MultiRule), r);
+                    std::string hdrStr = std::string(hdr) + " (" + chLabels[s] + " -> " + chLabels[d] + ") | m=" +
+                                         std::to_string(rule.mu) + " s=" + std::to_string(rule.sigma) +
+                                         " h=" + std::to_string(rule.growthStrength) + "##rule" + std::to_string(r);
                     ImGui::PushID(r);
-                    if (ImGui::TreeNode(hdr)) {
+                    if (ImGui::TreeNode(hdrStr.c_str())) {
                         bool ruleKernelDirty = false;
 
                         char srcLabel[32], dstLabel[32];
-                        std::snprintf(srcLabel, sizeof(srcLabel), "Source Channel##src%d", r);
-                        std::snprintf(dstLabel, sizeof(dstLabel), "Dest Channel##dst%d", r);
+                        std::snprintf(srcLabel, sizeof(srcLabel), "%s##src%d", TR(MultiSourceChannel), r);
+                        std::snprintf(dstLabel, sizeof(dstLabel), "%s##dst%d", TR(MultiDestChannel), r);
 
-                        ImGui::TextColored(chColors[s], "Source: %s (%d)", chLabels[s], rule.sourceChannel);
+                        ImGui::TextColored(chColors[s], "%s: %s (%d)", TR(MultiSourceChannel), chLabels[s], rule.sourceChannel);
                         ImGui::SameLine(0, 20);
-                        ImGui::TextColored(chColors[d], "Dest: %s (%d)", chLabels[d], rule.destChannel);
+                        ImGui::TextColored(chColors[d], "%s: %s (%d)", TR(MultiDestChannel), chLabels[d], rule.destChannel);
 
                         SliderIntWithInput(srcLabel, &rule.sourceChannel, 0, 2);
                         SliderIntWithInput(dstLabel, &rule.destChannel, 0, 2);
@@ -1992,11 +1958,11 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         char muL[32], sigL[32], hL[32], rfL[32], rnL[32], ktL[32], gtL[32];
                         std::snprintf(muL, sizeof(muL), "mu##rmu%d", r);
                         std::snprintf(sigL, sizeof(sigL), "sigma##rsig%d", r);
-                        std::snprintf(hL, sizeof(hL), "Strength (h)##rh%d", r);
-                        std::snprintf(rfL, sizeof(rfL), "Radius Frac##rrf%d", r);
-                        std::snprintf(rnL, sizeof(rnL), "Rings##rrn%d", r);
-                        std::snprintf(ktL, sizeof(ktL), "Kernel##rkt%d", r);
-                        std::snprintf(gtL, sizeof(gtL), "Growth##rgt%d", r);
+                        std::snprintf(hL, sizeof(hL), "%s##rh%d", TR(MultiStrengthH), r);
+                        std::snprintf(rfL, sizeof(rfL), "%s##rrf%d", TR(MultiRadiusFrac), r);
+                        std::snprintf(rnL, sizeof(rnL), "%s##rrn%d", TR(KernelRings), r);
+                        std::snprintf(ktL, sizeof(ktL), "%s##rkt%d", TR(MultiKernelLabel), r);
+                        std::snprintf(gtL, sizeof(gtL), "%s##rgt%d", TR(MultiGrowthLabel), r);
 
                         SliderFloatWithInput(muL, &rule.mu, 0.001f, 1.0f, "%.4f");
                         SliderFloatWithInput(sigL, &rule.sigma, 0.001f, 0.5f, "%.4f");
@@ -2006,11 +1972,19 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         if (SliderIntWithInput(rnL, &rule.numRings, 1, 8))
                             ruleKernelDirty = true;
 
-                        const char* kNames[] = {"Gaussian", "Bump4", "Multi-Gauss", "Multi-Bump4", "GoL", "Step", "Cosine", "Mexican Hat", "Quad4", "Multi-Quad4"};
+                        const char* kNames[] = {
+                            TR(KernelGaussianShell), TR(KernelBump4), TR(KernelMultiringGauss), TR(KernelMultiringBump4),
+                            TR(KernelGameOfLife), TR(KernelStepUnimodal), TR(KernelCosineShell), TR(KernelMexicanHat),
+                            TR(KernelQuad4), TR(KernelMultiringQuad4)
+                        };
                         if (ImGui::Combo(ktL, &rule.kernelType, kNames, 10))
                             ruleKernelDirty = true;
 
-                        const char* gNames[] = {"Lenia", "Step", "GoL", "SmoothLife", "Polynomial", "Exponential", "DoublePeak", "Asymptotic", "SoftClip", "LTL"};
+                        const char* gNames[] = {
+                            TR(GrowthTypeLenia), TR(GrowthTypeStep), TR(GrowthTypeGameOfLife), TR(GrowthTypeSmoothLife),
+                            TR(GrowthTypePolynomial), TR(GrowthTypeExponential), TR(GrowthTypeDoublePeak), TR(GrowthTypeAsymptotic),
+                            TR(GrowthTypeSoftClip), TR(GrowthTypeLargerThanLife)
+                        };
                         ImGui::Combo(gtL, &rule.growthType, gNames, 10);
 
                         if (rule.numRings > 1) {
@@ -2038,46 +2012,36 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Display", 9)) {
+    if (sectionHeader(TR(SectionDisplay), 9)) {
         const char* dispModes[] = {
-            "World", "Neighbor Sums", "Growth Values", "Kernel", "Delta (Change)",
-            "Vector Field", "Contour Lines", "Heat Map", "Activity Map", "Difference"
+            TR(DisplayWorld), TR(DisplayNeighborSums), TR(DisplayGrowthValues), TR(DisplayKernel), TR(DisplayDelta),
+            TR(DisplayVectorField), TR(DisplayContourLines), TR(DisplayHeatMap), TR(DisplayActivityMap), TR(DisplayDifference)
         };
-        ImGui::Combo("Display Mode", &params.displayMode, dispModes, 10);
-        Tooltip("Visualization modes:\n"
-                "World: Cell states\n"
-                "Neighbor Sums: Convolution potentials\n"
-                "Growth: Growth rate field\n"
-                "Kernel: Convolution kernel\n"
-                "Delta: Change per step\n"
-                "Vector Field: Gradient directions\n"
-                "Contour Lines: Density levels\n"
-                "Heat Map: Intensity heatmap\n"
-                "Activity Map: Recent changes\n"
-                "Difference: Frame-to-frame changes");
+        ImGui::Combo(TR(DisplayMode), &params.displayMode, dispModes, 10);
+        Tooltip(TR(DisplayModeTooltip));
         
         if (params.displayMode == 5) {
-            ImGui::SliderFloat("Vector Scale", &params.vectorFieldScale, 0.1f, 5.0f, "%.1f");
-            Tooltip("Scale of vector arrows.");
-            ImGui::SliderInt("Vector Density", &params.vectorFieldDensity, 5, 50);
-            Tooltip("Number of vectors per axis.");
+            ImGui::SliderFloat(TR(DisplayVectorScale), &params.vectorFieldScale, 0.1f, 5.0f, "%.1f");
+            Tooltip(TR(DisplayVectorScaleTooltip));
+            ImGui::SliderInt(TR(DisplayVectorDensity), &params.vectorFieldDensity, 5, 50);
+            Tooltip(TR(DisplayVectorDensityTooltip));
         }
         
         if (params.displayMode == 6) {
-            ImGui::SliderInt("Contour Levels", &params.contourLevels, 2, 30);
-            Tooltip("Number of contour lines.");
-            ImGui::SliderFloat("Line Thickness", &params.contourThickness, 0.5f, 3.0f, "%.1f");
-            Tooltip("Thickness of contour lines.");
+            ImGui::SliderInt(TR(DisplayContourLevels), &params.contourLevels, 2, 30);
+            Tooltip(TR(DisplayContourLevelsTooltip));
+            ImGui::SliderFloat(TR(DisplayLineThickness), &params.contourThickness, 0.5f, 3.0f, "%.1f");
+            Tooltip(TR(DisplayLineThicknessTooltip));
         }
         
         if (params.displayMode == 8) {
-            ImGui::SliderFloat("Activity Decay", &params.activityDecay, 0.8f, 0.999f, "%.3f");
-            Tooltip("How quickly activity fades (higher = longer trails).");
+            ImGui::SliderFloat(TR(DisplayActivityDecay), &params.activityDecay, 0.8f, 0.999f, "%.3f");
+            Tooltip(TR(DisplayActivityDecayTooltip));
         }
 
         std::vector<std::string> cmapList = {
-            "Lenia (Custom)", "Viridis", "Magma", "Inferno",
-            "Plasma", "Grayscale", "Grayscale Inv.", "Jet"
+            TR(DisplayColormapLenia), TR(DisplayColormapViridis), TR(DisplayColormapMagma), TR(DisplayColormapInferno),
+            TR(DisplayColormapPlasma), TR(DisplayColormapGrayscale), TR(DisplayColormapGrayscaleInv), TR(DisplayColormapJet)
         };
         for (auto& cn : m_customColormapNames)
             cmapList.push_back(cn);
@@ -2088,29 +2052,33 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
             *out = (*list)[idx].c_str();
             return true;
         };
-        ImGui::Combo("Colormap", &params.colormapMode, cmapGetter,
+        ImGui::Combo(TR(DisplayColormap), &params.colormapMode, cmapGetter,
                      &cmapList, static_cast<int>(cmapList.size()));
-        Tooltip("Color mapping applied to single-channel state values. In RGB multi-channel mode, raw channel values are used as R/G/B directly.");
+        Tooltip(TR(DisplayColormapTooltip));
 
         drawColorbar(params);
 
         if (params.numChannels > 1) {
             ImGui::Separator();
-            ImGui::Checkbox("Use Colormap for Multichannel##useCmapMC", &params.useColormapForMultichannel);
-            Tooltip("Convert RGB channels to a single luminance value and apply the colormap.");
+            std::string useCmapLabel = std::string(TR(DisplayUseColormapMulti)) + "##useCmapMC";
+            ImGui::Checkbox(useCmapLabel.c_str(), &params.useColormapForMultichannel);
+            Tooltip(TR(DisplayUseColormapMultiTooltip));
             
             if (params.useColormapForMultichannel) {
-                const char* blendModes[] = {"Luminance (Weighted)", "Average", "Max Channel", "Min Channel", "Red Only", "Green Only", "Blue Only"};
-                ImGui::Combo("Blend Mode##mcBlend", &params.multiChannelBlend, blendModes, 7);
-                Tooltip("How to combine RGB channels into a single value for colormap:\n- Luminance: Standard perceptual weighting\n- Average: Equal weights\n- Max/Min: Brightest/darkest channel\n- Single: Use one channel only");
+                const char* blendModes[] = {TR(DisplayBlendLuminance), TR(DisplayBlendAverage), TR(DisplayBlendMaxChannel), TR(DisplayBlendMinChannel), TR(DisplayBlendRedOnly), TR(DisplayBlendGreenOnly), TR(DisplayBlendBlueOnly)};
+                ImGui::Combo(TR(DisplayBlendMode), &params.multiChannelBlend, blendModes, 7);
+                Tooltip(TR(DisplayBlendModeTooltip));
                 
                 if (params.multiChannelBlend == 0) {
-                    ImGui::Text("Channel Weights:");
-                    ImGui::SliderFloat("R Weight##wR", &params.channelWeightR, 0.0f, 2.0f, "%.2f");
-                    ImGui::SliderFloat("G Weight##wG", &params.channelWeightG, 0.0f, 2.0f, "%.2f");
-                    ImGui::SliderFloat("B Weight##wB", &params.channelWeightB, 0.0f, 2.0f, "%.2f");
-                    Tooltip("Custom weights for luminance calculation. Standard is R=0.299, G=0.587, B=0.114");
-                    if (ImGui::Button("Reset Weights##resetW")) {
+                    ImGui::Text(TR(DisplayChannelWeights));
+                    std::string wRLabel = std::string(TR(DisplayChannelWeightR)) + "##wR";
+                    std::string wGLabel = std::string(TR(DisplayChannelWeightG)) + "##wG";
+                    std::string wBLabel = std::string(TR(DisplayChannelWeightB)) + "##wB";
+                    ImGui::SliderFloat(wRLabel.c_str(), &params.channelWeightR, 0.0f, 2.0f, "%.2f");
+                    ImGui::SliderFloat(wGLabel.c_str(), &params.channelWeightG, 0.0f, 2.0f, "%.2f");
+                    ImGui::SliderFloat(wBLabel.c_str(), &params.channelWeightB, 0.0f, 2.0f, "%.2f");
+                    Tooltip(TR(DisplayChannelWeightsTooltip));
+                    if (ImGui::Button(TR(DisplayResetWeights))) {
                         params.channelWeightR = 0.299f;
                         params.channelWeightG = 0.587f;
                         params.channelWeightB = 0.114f;
@@ -2120,191 +2088,199 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
         }
 
         ImGui::Separator();
-        SliderFloatWithInput("Zoom (+/-)", &params.zoom, 0.1f, 20.0f, "%.2f");
+        std::string zoomLabel = std::string(TR(DisplayZoom)) + " (+/-)";
+        SliderFloatWithInput(zoomLabel.c_str(), &params.zoom, 0.1f, 20.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.1f, 20.0f, r, 1, nullptr, 0); }
-        Tooltip("Viewport zoom level. Use +/- keys or mouse scroll wheel. 1.0 = 1:1 pixel mapping.");
-        SliderFloatWithInput("Pan X", &params.panX, -2.0f, 2.0f, "%.3f");
+        Tooltip(TR(DisplayZoomTooltip));
+        SliderFloatWithInput(TR(DisplayPanX), &params.panX, -2.0f, 2.0f, "%.3f");
         { float r[] = {0.0f}; drawSliderMarkers(-2.0f, 2.0f, r, 1, nullptr, 0); snapFloat(params.panX, -2.0f, 2.0f, r, 1); }
-        Tooltip("Horizontal viewport offset. 0 = centered. Use arrow keys to pan.");
-        SliderFloatWithInput("Pan Y", &params.panY, -2.0f, 2.0f, "%.3f");
+        Tooltip(TR(DisplayPanXTooltip));
+        SliderFloatWithInput(TR(DisplayPanY), &params.panY, -2.0f, 2.0f, "%.3f");
         { float r[] = {0.0f}; drawSliderMarkers(-2.0f, 2.0f, r, 1, nullptr, 0); snapFloat(params.panY, -2.0f, 2.0f, r, 1); }
-        Tooltip("Vertical viewport offset. 0 = centered. Use arrow keys to pan.");
+        Tooltip(TR(DisplayPanYTooltip));
 
         float halfBtnW = (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x) / 2.0f;
-        if (ImGui::Button("Reset View (Home)", ImVec2(halfBtnW, 22))) {
+        std::string resetViewLabel = std::string(TR(DisplayResetView)) + " (Home)";
+        if (ImGui::Button(resetViewLabel.c_str(), ImVec2(halfBtnW, 22))) {
             params.zoom = 1.0f;
             params.panX = 0.0f;
             params.panY = 0.0f;
         }
-        Tooltip("Reset zoom to 1.0 and center the view.");
+        Tooltip(TR(DisplayResetViewTooltip));
         ImGui::SameLine();
-        if (ImGui::Button("Center View", ImVec2(halfBtnW, 22))) {
+        if (ImGui::Button(TR(DisplayCenterView), ImVec2(halfBtnW, 22))) {
             params.panX = 0.0f;
             params.panY = 0.0f;
         }
-        Tooltip("Center the view without changing zoom.");
+        Tooltip(TR(DisplayCenterViewTooltip));
 
         ImGui::Separator();
-        SliderFloatWithInput("Brightness", &params.brightness, 0.0f, 1.5f, "%.2f");
+        SliderFloatWithInput(TR(DisplayBrightness), &params.brightness, 0.0f, 1.5f, "%.2f");
         { float r[] = {0.5f}; drawSliderMarkers(0.0f, 1.5f, r, 1, nullptr, 0); snapFloat(params.brightness, 0.0f, 1.5f, r, 1); }
-        Tooltip("Additive brightness offset applied after colormap. 0.5 is the default.");
-        SliderFloatWithInput("Contrast", &params.contrast, 0.1f, 5.0f, "%.2f");
+        Tooltip(TR(DisplayBrightnessTooltip));
+        SliderFloatWithInput(TR(DisplayContrast), &params.contrast, 0.1f, 5.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.1f, 5.0f, r, 1, nullptr, 0); snapFloat(params.contrast, 0.1f, 5.0f, r, 1); }
-        Tooltip("Multiplicative contrast scaling. 1.0 = no change. Higher values increase the difference between bright and dark areas.");
-        SliderFloatWithInput("Gamma", &params.gamma, 0.1f, 5.0f, "%.2f");
+        Tooltip(TR(DisplayContrastTooltip));
+        SliderFloatWithInput(TR(DisplayGamma), &params.gamma, 0.1f, 5.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.1f, 5.0f, r, 1, nullptr, 0); snapFloat(params.gamma, 0.1f, 5.0f, r, 1); }
-        Tooltip("Gamma correction exponent. 1.0 = linear. <1 brightens midtones, >1 darkens midtones.");
+        Tooltip(TR(DisplayGammaTooltip));
 
         ImGui::Separator();
-        const char* filterNames[] = {"Bilinear", "Nearest", "Sharpen"};
-        ImGui::Combo("Filter Mode", &params.filterMode, filterNames, 3);
-        Tooltip("Texture filtering mode. Bilinear = smooth interpolation. Nearest = pixelated look. Sharpen = enhanced edges.");
-        SliderFloatWithInput("Edge Detect", &params.edgeStrength, 0.0f, 1.0f, "%.2f");
+        const char* filterNames[] = {TR(DisplayFilterBilinear), TR(DisplayFilterNearest), TR(DisplayFilterSharpen)};
+        ImGui::Combo(TR(DisplayFilterMode), &params.filterMode, filterNames, 3);
+        Tooltip(TR(DisplayFilterModeTooltip));
+        SliderFloatWithInput(TR(DisplayEdgeDetect), &params.edgeStrength, 0.0f, 1.0f, "%.2f");
         { float r[] = {0.0f}; drawSliderMarkers(0.0f, 1.0f, r, 1, nullptr, 0); snapFloat(params.edgeStrength, 0.0f, 1.0f, r, 1); }
-        Tooltip("Strength of Sobel edge detection overlay. 0 = off. Highlights boundaries between high and low values.");
+        Tooltip(TR(DisplayEdgeDetectTooltip));
         
-        if (ImGui::CollapsingHeader("Glow Settings")) {
-            SliderFloatWithInput("Glow Strength", &params.glowStrength, 0.0f, 1.0f, "%.2f");
+        if (ImGui::CollapsingHeader(TR(DisplayGlowSettings))) {
+            SliderFloatWithInput(TR(DisplayGlowStrength), &params.glowStrength, 0.0f, 1.0f, "%.2f");
             { float r[] = {0.0f}; drawSliderMarkers(0.0f, 1.0f, r, 1, nullptr, 0); snapFloat(params.glowStrength, 0.0f, 1.0f, r, 1); }
-            Tooltip("Bloom/glow effect intensity. 0 = off.");
+            Tooltip(TR(DisplayGlowStrengthTooltip));
             
             if (params.glowStrength > 0.0f) {
                 float gc[3] = {params.glowR, params.glowG, params.glowB};
-                if (ImGui::ColorEdit3("Glow Tint", gc)) {
+                if (ImGui::ColorEdit3(TR(DisplayGlowTint), gc)) {
                     params.glowR = gc[0];
                     params.glowG = gc[1];
                     params.glowB = gc[2];
                 }
-                Tooltip("Color tint for the glow effect.");
+                Tooltip(TR(DisplayGlowTintTooltip));
                 
-                SliderFloatWithInput("Glow Intensity", &params.glowIntensity, 0.5f, 3.0f, "%.2f");
+                SliderFloatWithInput(TR(DisplayGlowIntensity), &params.glowIntensity, 0.5f, 3.0f, "%.2f");
                 { float r[] = {1.0f}; drawSliderMarkers(0.5f, 3.0f, r, 1, nullptr, 0); snapFloat(params.glowIntensity, 0.5f, 3.0f, r, 1); }
-                Tooltip("Multiplier for glow brightness.");
+                Tooltip(TR(DisplayGlowIntensityTooltip));
             }
         }
         
-        if (ImGui::CollapsingHeader("Custom Gradient")) {
-            ImGui::SliderInt("Gradient Stops", &params.gradientStops, 2, 5);
-            Tooltip("Number of color stops in the gradient mapping.");
+        if (ImGui::CollapsingHeader(TR(DisplayCustomGradient))) {
+            ImGui::SliderInt(TR(DisplayGradientStops), &params.gradientStops, 2, 5);
+            Tooltip(TR(DisplayGradientStopsTooltip));
             
             for (int i = 0; i < params.gradientStops; ++i) {
                 char label[32];
-                std::snprintf(label, sizeof(label), "Stop %d", i + 1);
+                std::snprintf(label, sizeof(label), TR(DisplayGradientStopLabel), i + 1);
                 float* col = &params.gradientColors[i * 3];
                 ImGui::ColorEdit3(label, col, ImGuiColorEditFlags_NoInputs);
                 if (i < params.gradientStops - 1) ImGui::SameLine();
             }
-            Tooltip("Colors for custom gradient mapping. Applied when using custom colormap.");
+            Tooltip(TR(DisplayCustomGradientTooltip));
         }
 
         ImGui::Separator();
-        ImGui::Checkbox("Grid Overlay", &params.showGrid);
-        Tooltip("Draw a grid overlay on the simulation view at cell boundaries (visible when zoomed in).");
+        ImGui::Checkbox(TR(DisplayGridOverlay), &params.showGrid);
+        Tooltip(TR(DisplayGridOverlayTooltip));
         if (params.showGrid) {
-            SliderFloatWithInput("Grid Opacity", &params.gridOpacity, 0.0f, 1.0f, "%.2f");
-            Tooltip("Opacity of the grid overlay lines.");
+            SliderFloatWithInput(TR(DisplayGridOpacity), &params.gridOpacity, 0.0f, 1.0f, "%.2f");
+            Tooltip(TR(DisplayGridOpacityTooltip));
 
             float glc[3] = {params.gridLineR, params.gridLineG, params.gridLineB};
-            if (ImGui::ColorEdit3("Grid Color", glc)) {
+            if (ImGui::ColorEdit3(TR(DisplayGridColor), glc)) {
                 params.gridLineR = glc[0]; params.gridLineG = glc[1]; params.gridLineB = glc[2];
             }
-            Tooltip("Color of grid overlay lines.");
+            Tooltip(TR(DisplayGridColorTooltip));
 
-            SliderFloatWithInput("Line Thickness", &params.gridLineThickness, 0.1f, 5.0f, "%.1f");
+            SliderFloatWithInput(TR(DisplayGridLineThickness), &params.gridLineThickness, 0.1f, 5.0f, "%.1f");
             { float r[] = {1.0f}; drawSliderMarkers(0.1f, 5.0f, r, 1, nullptr, 0); snapFloat(params.gridLineThickness, 0.1f, 5.0f, r, 1); }
-            Tooltip("Thickness of grid lines. 1.0 = standard width.");
+            Tooltip(TR(DisplayGridLineThicknessTooltip));
 
-            const char* spacingModes[] = {"Every Cell", "Custom Interval"};
-            ImGui::Combo("Grid Spacing", &params.gridSpacingMode, spacingModes, 2);
-            Tooltip("Every Cell: lines at each cell boundary.\nCustom Interval: lines every N cells.");
+            const char* spacingModes[] = {TR(DisplayGridEveryCell), TR(DisplayGridCustomInterval)};
+            ImGui::Combo(TR(DisplayGridSpacing), &params.gridSpacingMode, spacingModes, 2);
+            Tooltip(TR(DisplayGridSpacingTooltip));
 
             if (params.gridSpacingMode == 1) {
-                SliderIntWithInput("Interval", &params.gridCustomSpacing, 1, 100);
-                Tooltip("Draw grid lines every N cells.");
+                SliderIntWithInput(TR(DisplayGridInterval), &params.gridCustomSpacing, 1, 100);
+                Tooltip(TR(DisplayGridIntervalTooltip));
             }
 
-            ImGui::Checkbox("Major Lines", &params.gridMajorLines);
-            Tooltip("Draw thicker accent lines at regular intervals.");
+            ImGui::Checkbox(TR(DisplayGridMajorLines), &params.gridMajorLines);
+            Tooltip(TR(DisplayGridMajorLinesTooltip));
             if (params.gridMajorLines) {
-                SliderIntWithInput("Major Every", &params.gridMajorEvery, 2, 50);
-                Tooltip("Draw a major grid line every N minor intervals.");
-                SliderFloatWithInput("Major Opacity", &params.gridMajorOpacity, 0.0f, 1.0f, "%.2f");
-                Tooltip("Opacity of major grid lines.");
+                SliderIntWithInput(TR(DisplayGridMajorEvery), &params.gridMajorEvery, 2, 50);
+                Tooltip(TR(DisplayGridMajorEveryTooltip));
+                SliderFloatWithInput(TR(DisplayGridMajorOpacity), &params.gridMajorOpacity, 0.0f, 1.0f, "%.2f");
+                Tooltip(TR(DisplayGridMajorOpacityTooltip));
             }
         }
 
         ImGui::Separator();
-        ImGui::Checkbox("Invert Colors", &params.invertColors);
-        Tooltip("Invert all output colors (1 - color).");
+        ImGui::Checkbox(TR(DisplayInvertColors), &params.invertColors);
+        Tooltip(TR(DisplayInvertColorsTooltip));
 
-        ImGui::Checkbox("Show Boundary", &params.showBoundary);
-        Tooltip("Draw lines at the edges of the simulation grid.");
+        ImGui::Checkbox(TR(DisplayShowBoundary), &params.showBoundary);
+        Tooltip(TR(DisplayShowBoundaryTooltip));
         if (params.showBoundary) {
             float bc[3] = {params.boundaryR, params.boundaryG, params.boundaryB};
-            if (ImGui::ColorEdit3("Boundary Color##bcolor", bc)) {
+            std::string boundaryColorLabel = std::string(TR(DisplayBoundaryColor)) + "##bcolor";
+            if (ImGui::ColorEdit3(boundaryColorLabel.c_str(), bc)) {
                 params.boundaryR = bc[0]; params.boundaryG = bc[1]; params.boundaryB = bc[2];
             }
-            SliderFloatWithInput("Boundary Opacity##bopacity", &params.boundaryOpacity, 0.0f, 1.0f, "%.2f");
+            std::string boundaryOpacityLabel = std::string(TR(DisplayBoundaryOpacity)) + "##bopacity";
+            SliderFloatWithInput(boundaryOpacityLabel.c_str(), &params.boundaryOpacity, 0.0f, 1.0f, "%.2f");
             
-            const char* boundaryStyles[] = {"Solid", "Dashed", "Dotted", "Double", "Glow"};
-            ImGui::Combo("Boundary Style##bstyle", &params.boundaryStyle, boundaryStyles, 5);
-            Tooltip("Style of the boundary lines.");
+            const char* boundaryStyles[] = {TR(DisplayBoundaryStyleSolid), TR(DisplayBoundaryStyleDashed), TR(DisplayBoundaryStyleDotted), TR(DisplayBoundaryStyleDouble), TR(DisplayBoundaryStyleGlow)};
+            std::string boundaryStyleLabel = std::string(TR(DisplayBoundaryStyle)) + "##bstyle";
+            ImGui::Combo(boundaryStyleLabel.c_str(), &params.boundaryStyle, boundaryStyles, 5);
+            Tooltip(TR(DisplayBoundaryStyleTooltip));
             
-            SliderFloatWithInput("Boundary Width##bwidth", &params.boundaryThickness, 0.5f, 10.0f, "%.1f");
-            Tooltip("Thickness of boundary lines.");
+            std::string boundaryWidthLabel = std::string(TR(DisplayBoundaryWidth)) + "##bwidth";
+            SliderFloatWithInput(boundaryWidthLabel.c_str(), &params.boundaryThickness, 0.5f, 10.0f, "%.1f");
+            Tooltip(TR(DisplayBoundaryWidthTooltip));
             
             if (params.boundaryStyle == 1 || params.boundaryStyle == 2) {
-                SliderFloatWithInput("Dash Length##bdash", &params.boundaryDashLength, 2.0f, 30.0f, "%.0f");
-                Tooltip("Length of dashes/dots.");
+                std::string dashLabel = std::string(TR(DisplayDashLength)) + "##bdash";
+                SliderFloatWithInput(dashLabel.c_str(), &params.boundaryDashLength, 2.0f, 30.0f, "%.0f");
+                Tooltip(TR(DisplayDashLengthTooltip));
             }
             
-            ImGui::Checkbox("Animate Boundary##banim", &params.boundaryAnimate);
-            Tooltip("Animate the boundary with a marching ants effect.");
+            std::string animateLabel = std::string(TR(DisplayAnimateBoundary)) + "##banim";
+            ImGui::Checkbox(animateLabel.c_str(), &params.boundaryAnimate);
+            Tooltip(TR(DisplayAnimateBoundaryTooltip));
         }
 
         float bg[3] = {params.bgR, params.bgG, params.bgB};
-        if (ImGui::ColorEdit3("BG Color", bg)) {
+        if (ImGui::ColorEdit3(TR(DisplayBGColor), bg)) {
             params.bgR = bg[0]; params.bgG = bg[1]; params.bgB = bg[2];
         }
-        Tooltip("Background color visible when null cells are clipped or outside the grid.");
+        Tooltip(TR(DisplayBGColorTooltip));
 
-        ImGui::Checkbox("Clip Null Cells", &params.clipToZero);
-        Tooltip("Replace cells below the threshold with the background color instead of colormapping them.");
+        ImGui::Checkbox(TR(DisplayClipNullCells), &params.clipToZero);
+        Tooltip(TR(DisplayClipNullCellsTooltip));
         if (params.clipToZero) {
-            SliderFloatWithInput("Clip Threshold", &params.clipThreshold, 0.0001f, 0.1f, "%.4f");
-            Tooltip("Cells with values below this threshold will show the background color.");
+            SliderFloatWithInput(TR(DisplayClipThreshold), &params.clipThreshold, 0.0001f, 0.1f, "%.4f");
+            Tooltip(TR(DisplayClipThresholdTooltip));
         }
 
-        ImGui::SeparatorText("Colormap Deformation");
+        ImGui::SeparatorText(TR(DisplayColormapDeformation));
 
-        SliderFloatWithInput("Cmap Offset", &params.cmapOffset, 0.0f, 1.0f, "%.3f");
+        SliderFloatWithInput(TR(DisplayCmapOffset), &params.cmapOffset, 0.0f, 1.0f, "%.3f");
         { float r[] = {0.0f}; drawSliderMarkers(0.0f, 1.0f, r, 1, nullptr, 0); snapFloat(params.cmapOffset, 0.0f, 1.0f, r, 1); }
-        Tooltip("Cyclically shift the colormap lookup. 0 = no shift, 0.5 = half rotation.");
+        Tooltip(TR(DisplayCmapOffsetTooltip));
 
-        SliderFloatWithInput("Range Min", &params.cmapRange0, 0.0f, 1.0f, "%.3f");
+        SliderFloatWithInput(TR(DisplayRangeMin), &params.cmapRange0, 0.0f, 1.0f, "%.3f");
         { float r[] = {0.0f}; drawSliderMarkers(0.0f, 1.0f, r, 1, nullptr, 0); snapFloat(params.cmapRange0, 0.0f, 1.0f, r, 1); }
-        Tooltip("Remap: values below this are clamped to the start of the colormap.");
+        Tooltip(TR(DisplayRangeMinTooltip));
 
-        SliderFloatWithInput("Range Max", &params.cmapRange1, 0.0f, 1.0f, "%.3f");
+        SliderFloatWithInput(TR(DisplayRangeMax), &params.cmapRange1, 0.0f, 1.0f, "%.3f");
         { float r[] = {1.0f}; drawSliderMarkers(0.0f, 1.0f, r, 1, nullptr, 0); snapFloat(params.cmapRange1, 0.0f, 1.0f, r, 1); }
-        Tooltip("Remap: values above this are clamped to the end of the colormap.");
+        Tooltip(TR(DisplayRangeMaxTooltip));
 
-        SliderFloatWithInput("Power Curve", &params.cmapPower, 0.1f, 5.0f, "%.2f");
+        SliderFloatWithInput(TR(DisplayPowerCurve), &params.cmapPower, 0.1f, 5.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.1f, 5.0f, r, 1, nullptr, 0); snapFloat(params.cmapPower, 0.1f, 5.0f, r, 1); }
-        Tooltip("Apply a power curve to the colormap input. 1.0 = linear. <1 = brighter midtones, >1 = darker midtones.");
+        Tooltip(TR(DisplayPowerCurveTooltip));
 
-        SliderFloatWithInput("Hue Shift", &params.cmapHueShift, 0.0f, 1.0f, "%.3f");
+        SliderFloatWithInput(TR(DisplayHueShift), &params.cmapHueShift, 0.0f, 1.0f, "%.3f");
         { float r[] = {0.0f}; drawSliderMarkers(0.0f, 1.0f, r, 1, nullptr, 0); snapFloat(params.cmapHueShift, 0.0f, 1.0f, r, 1); }
-        Tooltip("Rotate the hue of the output color in HSV space.");
+        Tooltip(TR(DisplayHueShiftTooltip));
 
-        SliderFloatWithInput("Saturation", &params.cmapSaturation, 0.0f, 3.0f, "%.2f");
+        SliderFloatWithInput(TR(DisplaySaturation), &params.cmapSaturation, 0.0f, 3.0f, "%.2f");
         { float r[] = {1.0f}; drawSliderMarkers(0.0f, 3.0f, r, 1, nullptr, 0); snapFloat(params.cmapSaturation, 0.0f, 3.0f, r, 1); }
-        Tooltip("Scale saturation of the output color. 0 = grayscale, 1 = original, >1 = oversaturated.");
+        Tooltip(TR(DisplaySaturationTooltip));
 
-        ImGui::Checkbox("Reverse Colormap", &params.cmapReverse);
-        Tooltip("Reverse the direction of the colormap lookup (1 becomes 0 and vice versa).");
+        ImGui::Checkbox(TR(DisplayReverseColormap), &params.cmapReverse);
+        Tooltip(TR(DisplayReverseColormapTooltip));
 
-        if (ImGui::Button("Reset Colormap Deformation", ImVec2(-1, 22))) {
+        if (ImGui::Button(TR(DisplayResetColormapDeformation), ImVec2(-1, 22))) {
             params.cmapOffset = 0.0f;
             params.cmapRange0 = 0.0f;
             params.cmapRange1 = 1.0f;
@@ -2317,74 +2293,74 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
     popSectionColor();
 
     pushSectionColor(sec++);
-    if (sectionHeader("Analysis", 10)) {
-        ImGui::Checkbox("Enable Analysis", &params.showAnalysis);
-        Tooltip("Compute live statistics about the simulation state using a GPU analysis shader.");
+    if (sectionHeader(TR(SectionAnalysis), 10)) {
+        ImGui::Checkbox(TR(AnalysisEnable), &params.showAnalysis);
+        Tooltip(TR(AnalysisEnableTooltip));
         ImGui::SameLine();
-        ImGui::Checkbox("Auto-Pause", &params.autoPause);
-        Tooltip("Automatically pause when the simulation is detected as empty or stabilized.");
+        ImGui::Checkbox(TR(AnalysisAutoPause), &params.autoPause);
+        Tooltip(TR(AnalysisAutoPauseTooltip));
 
-        SliderFloatWithInput("Alive Threshold", &params.analysisThreshold, 0.0001f, 0.5f, "%.4f");
-        Tooltip("Minimum cell value to be counted as 'alive'. Used for alive cell count, stabilization, and empty detection.");
+        SliderFloatWithInput(TR(AnalysisAliveThreshold), &params.analysisThreshold, 0.0001f, 0.5f, "%.4f");
+        Tooltip(TR(AnalysisAliveThresholdTooltip));
 
         if (analysis && params.showAnalysis) {
             ImGui::Separator();
-            ImGui::Text("Total Mass: %.2f", analysis->totalMass);
-            ImGui::Text("Alive Cells: %d / %d (%.1f%%)",
+            ImGui::Text(TR(AnalysisTotalMass), analysis->totalMass);
+            ImGui::Text(TR(AnalysisAliveCells),
                         analysis->aliveCount, analysis->totalPixels,
                         analysis->totalPixels > 0
                             ? 100.0f * analysis->aliveCount / analysis->totalPixels
                             : 0.0f);
-            ImGui::Text("Average: %.4f", analysis->avgVal);
-            ImGui::Text("Min: %.4f  Max: %.4f", analysis->minVal, analysis->maxVal);
-            ImGui::Text("Variance: %.6f", analysis->variance);
-            ImGui::Text("Centroid: (%.1f, %.1f)", analysis->centroidX, analysis->centroidY);
-            ImGui::Text("Bounds: (%.0f,%.0f)-(%.0f,%.0f)",
+            ImGui::Text(TR(AnalysisAverage), analysis->avgVal);
+            ImGui::Text(TR(AnalysisMinMax), analysis->minVal, analysis->maxVal);
+            ImGui::Text(TR(AnalysisVariance), analysis->variance);
+            ImGui::Text(TR(AnalysisCentroid), analysis->centroidX, analysis->centroidY);
+            ImGui::Text(TR(AnalysisBounds),
                         analysis->boundMinX, analysis->boundMinY,
                         analysis->boundMaxX, analysis->boundMaxY);
 
             if (analysisMgr) {
                 ImGui::Separator();
                 if (analysisMgr->isEmpty()) {
-                    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "State: EMPTY");
+                    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), TR(AnalysisStateEmpty));
                 } else if (analysisMgr->isStabilized()) {
-                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "State: STABILIZED");
+                    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), TR(AnalysisStateStabilized));
                 } else if (analysisMgr->isPeriodic()) {
                     ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f),
-                        "State: PERIODIC (T=%d, conf=%.0f%%)",
+                        TR(AnalysisStatePeriodic),
                         analysisMgr->detectedPeriod(),
                         analysisMgr->periodConfidence() * 100.0f);
                 } else {
-                    ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.3f, 1.0f), "State: Active");
+                    ImGui::TextColored(ImVec4(0.3f, 0.9f, 0.3f, 1.0f), TR(AnalysisStateActive));
                 }
 
                 ImGui::Separator();
-                ImGui::Text("Species (est): %d", analysisMgr->speciesCount());
-                ImGui::Text("Speed: %.3f cells/step", analysisMgr->movementSpeed());
-                ImGui::Text("Direction: %.1f deg", analysisMgr->movementDirection());
-                ImGui::Text("Orientation: %.1f deg", analysisMgr->orientation());
+                ImGui::Text(TR(AnalysisSpecies), analysisMgr->speciesCount());
+                ImGui::Text(TR(AnalysisSpeed), analysisMgr->movementSpeed());
+                ImGui::Text(TR(AnalysisDirection), analysisMgr->movementDirection());
+                ImGui::Text(TR(AnalysisOrientation), analysisMgr->orientation());
             }
 
             if (analysisMgr && analysisMgr->historyCount() > 1) {
                 ImGui::Separator();
-                ImGui::Text("Graphs");
+                ImGui::Text(TR(AnalysisGraphs));
 
-                ImGui::Checkbox("Mass", &params.showMassGraph);
+                ImGui::Checkbox(TR(AnalysisMass), &params.showMassGraph);
                 ImGui::SameLine();
-                ImGui::Checkbox("Alive", &params.showAliveGraph);
+                ImGui::Checkbox(TR(AnalysisAlive), &params.showAliveGraph);
                 ImGui::SameLine();
-                ImGui::Checkbox("Centroid", &params.showCentroidGraph);
-                ImGui::Checkbox("Speed", &params.showSpeedGraph);
+                ImGui::Checkbox(TR(AnalysisCentroidGraph), &params.showCentroidGraph);
+                ImGui::Checkbox(TR(AnalysisSpeedGraph), &params.showSpeedGraph);
                 ImGui::SameLine();
-                ImGui::Checkbox("Direction", &params.showDirectionGraph);
+                ImGui::Checkbox(TR(AnalysisDirectionGraph), &params.showDirectionGraph);
 
-                SliderIntWithInput("Display Window", &params.graphTimeWindow, 0, AnalysisManager::HISTORY_SIZE);
-                Tooltip("Number of history steps to display. 0 = show all available data.");
+                SliderIntWithInput(TR(AnalysisDisplayWindow), &params.graphTimeWindow, 0, AnalysisManager::HISTORY_SIZE);
+                Tooltip(TR(AnalysisDisplayWindowTooltip));
 
-                SliderFloatWithInput("Graph Height", &params.graphHeight, 50.0f, 200.0f, "%.0f");
+                SliderFloatWithInput(TR(AnalysisGraphHeight), &params.graphHeight, 50.0f, 200.0f, "%.0f");
 
-                ImGui::Checkbox("Auto Y Scale", &params.graphAutoScale);
-                Tooltip("Automatically scale Y axis to fit visible data.");
+                ImGui::Checkbox(TR(AnalysisAutoYScale), &params.graphAutoScale);
+                Tooltip(TR(AnalysisAutoYScaleTooltip));
 
                 int fullCount = analysisMgr->historyCount();
                 int head = analysisMgr->historyHead();
@@ -2409,7 +2385,9 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         params.graphMassMax = mMax * 1.1f;
                     }
 
-                    drawGraphWithAxes("Mass", massPlot, dispCount, yMin, yMax, "step", "mass", params.graphHeight, IM_COL32(100, 220, 150, 230));
+                    drawGraphWithAxes(TR(AnalysisMass), massPlot, dispCount, yMin, yMax,
+                                      TR(AnalysisGraphXAxisStep), TR(AnalysisGraphYAxisMass), params.graphHeight,
+                                      IM_COL32(100, 220, 150, 230));
 
                     if (analysisMgr->isPeriodic()) {
                         ImVec2 pMin = ImGui::GetItemRectMin();
@@ -2444,7 +2422,9 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         params.graphAliveMax = aMax * 1.1f;
                     }
 
-                    drawGraphWithAxes("Alive Cells", alivePlot, dispCount, yMin, yMax, "step", "cells", params.graphHeight, IM_COL32(220, 180, 100, 230));
+                    drawGraphWithAxes(TR(AnalysisAliveCellsGraph), alivePlot, dispCount, yMin, yMax,
+                                      TR(AnalysisGraphXAxisStep), TR(AnalysisGraphYAxisCells), params.graphHeight,
+                                      IM_COL32(220, 180, 100, 230));
                 }
 
                 if (params.showCentroidGraph) {
@@ -2454,8 +2434,10 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         cxPlot[i] = analysisMgr->centroidXHistory(idx);
                         cyPlot[i] = analysisMgr->centroidYHistory(idx);
                     }
-                    drawGraphWithAxes("Centroid X", cxPlot, dispCount, 0.0f, static_cast<float>(params.gridW), "step", "x", params.graphHeight, IM_COL32(150, 200, 255, 230));
-                    drawGraphWithAxes("Centroid Y", cyPlot, dispCount, 0.0f, static_cast<float>(params.gridH), "step", "y", params.graphHeight, IM_COL32(255, 150, 200, 230));
+                    drawGraphWithAxes(TR(AnalysisCentroidXGraph), cxPlot, dispCount, 0.0f, static_cast<float>(params.gridW),
+                                      TR(AnalysisGraphXAxisStep), TR(AnalysisGraphYAxisX), params.graphHeight, IM_COL32(150, 200, 255, 230));
+                    drawGraphWithAxes(TR(AnalysisCentroidYGraph), cyPlot, dispCount, 0.0f, static_cast<float>(params.gridH),
+                                      TR(AnalysisGraphXAxisStep), TR(AnalysisGraphYAxisY), params.graphHeight, IM_COL32(255, 150, 200, 230));
                 }
 
                 if (params.showSpeedGraph) {
@@ -2468,7 +2450,9 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         if (spdPlot[i] > sMax) sMax = spdPlot[i];
                     }
                     float yMax = sMax > 0.001f ? sMax * 1.1f : 1.0f;
-                    drawGraphWithAxes("Speed", spdPlot, dispCount, 0.0f, yMax, "step", "px/s", params.graphHeight, IM_COL32(255, 180, 100, 230));
+                    drawGraphWithAxes(TR(AnalysisSpeedGraphTitle), spdPlot, dispCount, 0.0f, yMax,
+                                      TR(AnalysisGraphXAxisStep), TR(AnalysisGraphYAxisPxPerSec), params.graphHeight,
+                                      IM_COL32(255, 180, 100, 230));
                 }
 
                 if (params.showDirectionGraph) {
@@ -2477,10 +2461,18 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
                         int idx = (head - fullCount + startOff + i + AnalysisManager::HISTORY_SIZE) % AnalysisManager::HISTORY_SIZE;
                         dirPlot[i] = analysisMgr->directionHistory(idx);
                     }
-                    drawGraphWithAxes("Direction", dirPlot, dispCount, -180.0f, 180.0f, "step", "deg", params.graphHeight, IM_COL32(200, 150, 255, 230));
+                    drawGraphWithAxes(TR(AnalysisDirectionGraphTitle), dirPlot, dispCount, -180.0f, 180.0f,
+                                      TR(AnalysisGraphXAxisStep), TR(AnalysisGraphYAxisDeg), params.graphHeight,
+                                      IM_COL32(200, 150, 255, 230));
                 }
             }
         }
+    }
+    popSectionColor();
+
+    pushSectionColor(sec++);
+    if (sectionHeader(TR(SectionAccessibility), 11)) {
+        renderAccessibilitySection();
     }
     popSectionColor();
 
@@ -2490,14 +2482,341 @@ void UIOverlay::render(LeniaParams& params, bool& paused, int& stepsPerFrame, bo
 void UIOverlay::endFrame() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    
+    if (m_needsStyleUpdate) {
+        updateStyle();
+    }
+    
+    if (m_needsFontRebuild) {
+        rebuildFonts();
+    }
 }
 
 void UIOverlay::shutdown() {
     if (!m_initialized) return;
+    saveAccessibilitySettings();
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
     m_initialized = false;
+}
+
+void UIOverlay::setAccessibilitySettings(const AccessibilitySettings& settings) {
+    bool scaleChanged = (m_accessibilitySettings.uiScale != settings.uiScale);
+    bool fontChanged = (m_accessibilitySettings.fontSize != settings.fontSize);
+    bool contrastChanged = (m_accessibilitySettings.highContrast != settings.highContrast);
+    bool navChanged = (m_accessibilitySettings.keyboardNavEnabled != settings.keyboardNavEnabled) ||
+                      (m_accessibilitySettings.showFocusIndicators != settings.showFocusIndicators);
+    
+    m_accessibilitySettings = settings;
+    
+    if (scaleChanged) {
+        applyUIScale(settings.uiScale);
+    }
+    if (fontChanged) {
+        applyFontSize(settings.fontSize);
+    }
+    if (contrastChanged) {
+        applyHighContrastTheme(settings.highContrast);
+    }
+    if (navChanged) {
+        applyKeyboardNavigationSettings();
+    }
+    
+    saveAccessibilitySettings();
+}
+
+void UIOverlay::applyUIScale(float scale) {
+    scale = std::clamp(scale, AccessibilitySettings::MIN_UI_SCALE, AccessibilitySettings::MAX_UI_SCALE);
+    m_accessibilitySettings.uiScale = scale;
+    m_needsStyleUpdate = true;
+}
+
+void UIOverlay::applyFontSize(float size) {
+    size = std::clamp(size, AccessibilitySettings::MIN_FONT_SIZE, AccessibilitySettings::MAX_FONT_SIZE);
+    m_accessibilitySettings.fontSize = size;
+    m_needsFontRebuild = true;
+}
+
+void UIOverlay::updateStyle() {
+    if (!m_needsStyleUpdate) return;
+    m_needsStyleUpdate = false;
+    
+    float effectiveScale = m_dpiScale * m_accessibilitySettings.uiScale;
+    
+    if (std::abs(effectiveScale - m_lastStyleScale) < 0.001f) {
+        return;
+    }
+    
+    float ratio = (m_lastStyleScale > 0.0f) ? (effectiveScale / m_lastStyleScale) : 1.0f;
+    
+    ImGuiStyle& style = ImGui::GetStyle();
+    
+    style.WindowPadding = ImVec2(style.WindowPadding.x * ratio, style.WindowPadding.y * ratio);
+    style.WindowBorderSize = std::max(0.0f, style.WindowBorderSize * ratio);
+    style.WindowMinSize = ImVec2(style.WindowMinSize.x * ratio, style.WindowMinSize.y * ratio);
+    
+    style.FramePadding = ImVec2(style.FramePadding.x * ratio, style.FramePadding.y * ratio);
+    style.FrameBorderSize = std::max(0.0f, style.FrameBorderSize * ratio);
+    
+    style.ItemSpacing = ImVec2(style.ItemSpacing.x * ratio, style.ItemSpacing.y * ratio);
+    style.ItemInnerSpacing = ImVec2(style.ItemInnerSpacing.x * ratio, style.ItemInnerSpacing.y * ratio);
+    style.CellPadding = ImVec2(style.CellPadding.x * ratio, style.CellPadding.y * ratio);
+    
+    style.IndentSpacing = style.IndentSpacing * ratio;
+    style.ColumnsMinSpacing = style.ColumnsMinSpacing * ratio;
+    style.ScrollbarSize = std::max(1.0f, style.ScrollbarSize * ratio);
+    
+    style.GrabMinSize = std::max(1.0f, style.GrabMinSize * ratio);
+    style.GrabRounding = std::max(0.0f, style.GrabRounding * ratio);
+    
+    style.TabBorderSize = std::max(0.0f, style.TabBorderSize * ratio);
+    style.TabRounding = std::max(0.0f, style.TabRounding * ratio);
+    
+    style.WindowRounding = std::max(0.0f, style.WindowRounding * ratio);
+    style.ChildRounding = std::max(0.0f, style.ChildRounding * ratio);
+    style.FrameRounding = std::max(0.0f, style.FrameRounding * ratio);
+    style.PopupRounding = std::max(0.0f, style.PopupRounding * ratio);
+    
+    style.SeparatorTextPadding = ImVec2(style.SeparatorTextPadding.x * ratio, style.SeparatorTextPadding.y * ratio);
+    style.SeparatorTextBorderSize = std::max(0.0f, style.SeparatorTextBorderSize * ratio);
+    
+    style.DisplaySafeAreaPadding = ImVec2(style.DisplaySafeAreaPadding.x * ratio, style.DisplaySafeAreaPadding.y * ratio);
+    
+    style.WindowBorderHoverPadding = std::max(1.0f, style.WindowBorderHoverPadding * ratio);
+    
+    m_lastStyleScale = effectiveScale;
+}
+
+void UIOverlay::rebuildFonts() {
+    if (!m_needsFontRebuild) return;
+    
+    float effectiveScale = m_dpiScale * m_accessibilitySettings.uiScale;
+    float fontSize = m_accessibilitySettings.fontSize * effectiveScale;
+    
+    ImGuiIO& io = ImGui::GetIO();
+    
+    ImGui_ImplOpenGL3_DestroyDeviceObjects();
+    
+    io.Fonts->Clear();
+    io.Fonts->AddFontDefault();
+    
+    m_defaultFont = io.Fonts->AddFontFromFileTTF("C:/Windows/Fonts/segoeui.ttf", fontSize);
+    if (!m_defaultFont) {
+        ImFontConfig config;
+        config.SizePixels = fontSize;
+        m_defaultFont = io.Fonts->AddFontDefault(&config);
+    }
+    
+    io.Fonts->Build();
+    
+    ImGui_ImplOpenGL3_CreateDeviceObjects();
+    
+    io.FontDefault = m_defaultFont;
+    
+    m_needsFontRebuild = false;
+}
+
+void UIOverlay::applyKeyboardNavigationSettings() {
+    ImGuiIO& io = ImGui::GetIO();
+    if (m_accessibilitySettings.keyboardNavEnabled) {
+        io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    } else {
+        io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
+    }
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (m_accessibilitySettings.showFocusIndicators) {
+        style.Colors[ImGuiCol_NavHighlight] = ImVec4(1.00f, 1.00f, 0.20f, 1.00f);
+        style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.00f, 1.00f, 0.20f, 0.70f);
+        style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.10f, 0.10f, 0.10f, 0.35f);
+    } else {
+        style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+        style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+        style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    }
+}
+
+void UIOverlay::initHighContrastStyle() {
+    // High contrast theme is applied on-demand in applyHighContrastTheme
+}
+
+void UIOverlay::applyHighContrastTheme(bool enable) {
+    m_accessibilitySettings.highContrast = enable;
+    
+    ImGuiStyle& style = ImGui::GetStyle();
+    
+    if (enable) {
+        // Apply high contrast colors - white on black with yellow highlights
+        style.Colors[ImGuiCol_Text]                  = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+        style.Colors[ImGuiCol_TextDisabled]          = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
+        style.Colors[ImGuiCol_WindowBg]              = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+        style.Colors[ImGuiCol_ChildBg]               = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
+        style.Colors[ImGuiCol_FrameBg]               = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+        style.Colors[ImGuiCol_CheckMark]             = ImVec4(1.00f, 1.00f, 0.00f, 1.00f);
+        style.Colors[ImGuiCol_SliderGrab]            = ImVec4(1.00f, 1.00f, 0.00f, 1.00f);
+        style.Colors[ImGuiCol_Button]                = ImVec4(0.20f, 0.20f, 0.20f, 1.00f);
+        style.Colors[ImGuiCol_ButtonHovered]         = ImVec4(1.00f, 1.00f, 0.00f, 0.30f);
+        style.FrameBorderSize = 1.0f;
+        style.WindowBorderSize = 1.0f;
+    } else {
+        // Restore normal colors
+        style.Colors[ImGuiCol_Text]                  = ImVec4(0.95f, 0.95f, 1.00f, 1.00f);
+        style.Colors[ImGuiCol_TextDisabled]          = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+        style.Colors[ImGuiCol_WindowBg]              = ImVec4(0.10f, 0.12f, 0.18f, 0.95f);
+        style.Colors[ImGuiCol_ChildBg]               = ImVec4(0.08f, 0.10f, 0.16f, 0.90f);
+        style.Colors[ImGuiCol_FrameBg]               = ImVec4(0.14f, 0.14f, 0.20f, 0.80f);
+        style.Colors[ImGuiCol_CheckMark]             = ImVec4(0.45f, 0.70f, 1.00f, 1.00f);
+        style.Colors[ImGuiCol_SliderGrab]            = ImVec4(0.40f, 0.55f, 0.80f, 1.00f);
+        style.Colors[ImGuiCol_Button]                = ImVec4(0.18f, 0.22f, 0.35f, 1.00f);
+        style.Colors[ImGuiCol_ButtonHovered]         = ImVec4(0.28f, 0.35f, 0.55f, 1.00f);
+        style.FrameBorderSize = 0.0f;
+        style.WindowBorderSize = 0.0f;
+    }
+}
+
+void UIOverlay::saveAccessibilitySettings() const {
+    std::ofstream file("lenia_accessibility.cfg");
+    if (file.is_open()) {
+        file << "uiScale=" << m_accessibilitySettings.uiScale << "\n";
+        file << "fontSize=" << m_accessibilitySettings.fontSize << "\n";
+        file << "highContrast=" << (m_accessibilitySettings.highContrast ? 1 : 0) << "\n";
+        file << "reduceMotion=" << (m_accessibilitySettings.reduceMotion ? 1 : 0) << "\n";
+        file << "keyboardNavEnabled=" << (m_accessibilitySettings.keyboardNavEnabled ? 1 : 0) << "\n";
+        file << "showFocusIndicators=" << (m_accessibilitySettings.showFocusIndicators ? 1 : 0) << "\n";
+        file << "invertColors=" << (m_accessibilitySettings.invertColors ? 1 : 0) << "\n";
+        file << "cursorSize=" << m_accessibilitySettings.cursorSize << "\n";
+        file << "language=" << static_cast<int>(Localization::instance().getLanguage()) << "\n";
+    }
+}
+
+void UIOverlay::loadAccessibilitySettings() {
+    std::ifstream file("lenia_accessibility.cfg");
+    if (file.is_open()) {
+        std::string line;
+        while (std::getline(file, line)) {
+            size_t eqPos = line.find('=');
+            if (eqPos == std::string::npos) continue;
+            
+            std::string key = line.substr(0, eqPos);
+            std::string value = line.substr(eqPos + 1);
+            
+            if (key == "uiScale") {
+                m_accessibilitySettings.uiScale = std::stof(value);
+            } else if (key == "fontSize") {
+                m_accessibilitySettings.fontSize = std::stof(value);
+            } else if (key == "highContrast") {
+                m_accessibilitySettings.highContrast = (value == "1");
+            } else if (key == "reduceMotion") {
+                m_accessibilitySettings.reduceMotion = (value == "1");
+            } else if (key == "keyboardNavEnabled") {
+                m_accessibilitySettings.keyboardNavEnabled = (value == "1");
+            } else if (key == "showFocusIndicators") {
+                m_accessibilitySettings.showFocusIndicators = (value == "1");
+            } else if (key == "invertColors") {
+                m_accessibilitySettings.invertColors = (value == "1");
+            } else if (key == "cursorSize") {
+                m_accessibilitySettings.cursorSize = std::stof(value);
+            } else if (key == "language") {
+                int langVal = std::stoi(value);
+                if (langVal >= 0 && langVal <= 1) {
+                    Localization::instance().setLanguage(static_cast<Language>(langVal));
+                }
+            }
+        }
+        
+        m_accessibilitySettings.uiScale = std::clamp(m_accessibilitySettings.uiScale, 
+            AccessibilitySettings::MIN_UI_SCALE, AccessibilitySettings::MAX_UI_SCALE);
+        m_accessibilitySettings.fontSize = std::clamp(m_accessibilitySettings.fontSize,
+            AccessibilitySettings::MIN_FONT_SIZE, AccessibilitySettings::MAX_FONT_SIZE);
+    }
+}
+
+void UIOverlay::renderAccessibilitySection() {
+    auto& loc = Localization::instance();
+    
+    ImGui::Text("%s", TR(AccessibilityLanguage));
+    
+    auto languages = loc.getAvailableLanguages();
+    int currentLangIdx = static_cast<int>(loc.getLanguage());
+    
+    std::vector<const char*> langNames;
+    for (auto lang : languages) {
+        langNames.push_back(loc.getLanguageName(lang));
+    }
+    
+    if (ImGui::Combo("##language", &currentLangIdx, langNames.data(), static_cast<int>(langNames.size()))) {
+        loc.setLanguage(static_cast<Language>(currentLangIdx));
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityLanguageTooltip));
+    
+    ImGui::Separator();
+    
+    ImGui::Text("%s", TR(AccessibilityUIScale));
+    float uiScale = m_accessibilitySettings.uiScale;
+    if (ImGui::SliderFloat("##uiscale", &uiScale, AccessibilitySettings::MIN_UI_SCALE, 
+                           AccessibilitySettings::MAX_UI_SCALE, "%.2fx")) {
+        applyUIScale(uiScale);
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityUIScaleTooltip));
+    
+    ImGui::Text("%s", TR(AccessibilityFontSize));
+    float fontSize = m_accessibilitySettings.fontSize;
+    if (ImGui::SliderFloat("##fontsize", &fontSize, AccessibilitySettings::MIN_FONT_SIZE,
+                           AccessibilitySettings::MAX_FONT_SIZE, "%.0f px")) {
+        applyFontSize(fontSize);
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityFontSizeTooltip));
+    
+    ImGui::Separator();
+    
+    bool highContrast = m_accessibilitySettings.highContrast;
+    if (ImGui::Checkbox(TR(AccessibilityHighContrast), &highContrast)) {
+        applyHighContrastTheme(highContrast);
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityHighContrastTooltip));
+    
+    if (ImGui::Checkbox(TR(AccessibilityReduceMotion), &m_accessibilitySettings.reduceMotion)) {
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityReduceMotionTooltip));
+    
+    bool keyboardNavEnabled = m_accessibilitySettings.keyboardNavEnabled;
+    if (ImGui::Checkbox(TR(AccessibilityKeyboardNav), &keyboardNavEnabled)) {
+        m_accessibilitySettings.keyboardNavEnabled = keyboardNavEnabled;
+        applyKeyboardNavigationSettings();
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityKeyboardNavTooltip));
+
+    bool showFocusIndicators = m_accessibilitySettings.showFocusIndicators;
+    if (ImGui::Checkbox(TR(AccessibilityFocusIndicators), &showFocusIndicators)) {
+        m_accessibilitySettings.showFocusIndicators = showFocusIndicators;
+        applyKeyboardNavigationSettings();
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityFocusIndicatorsTooltip));
+    
+    ImGui::Separator();
+    
+    if (ImGui::Button(TR(AccessibilityResetDefaults), ImVec2(-1, 28))) {
+        m_accessibilitySettings.reset();
+        loc.setLanguage(Language::English);
+        applyUIScale(m_accessibilitySettings.uiScale);
+        applyFontSize(m_accessibilitySettings.fontSize);
+        applyHighContrastTheme(false);
+        applyKeyboardNavigationSettings();
+        saveAccessibilitySettings();
+    }
+    Tooltip(TR(AccessibilityResetDefaultsTooltip));
+    
+    ImGui::Spacing();
+    ImGui::TextDisabled("%s: %.2fx", TR(AccessibilitySystemDpiScale), m_dpiScale);
+    ImGui::TextDisabled("%s: %.2fx", TR(AccessibilityEffectiveScale), m_dpiScale * m_accessibilitySettings.uiScale);
 }
 
 }

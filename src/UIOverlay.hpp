@@ -9,7 +9,48 @@
 #include <string>
 #include <array>
 
+struct ImFont;
+struct ImGuiStyle;
+
 namespace lenia {
+
+/**
+ * @brief Accessibility settings for the application
+ * 
+ * Controls UI scaling, font size, high contrast mode, and other
+ * accessibility features for users with different needs.
+ */
+struct AccessibilitySettings {
+    float uiScale{1.0f};
+    float fontSize{16.0f};
+    
+    bool highContrast{false};
+    bool reduceMotion{false};
+    
+    bool keyboardNavEnabled{true};
+    bool showFocusIndicators{true};
+    
+    bool invertColors{false};
+    float cursorSize{1.0f};
+    
+    static constexpr float DEFAULT_UI_SCALE = 1.0f;
+    static constexpr float DEFAULT_FONT_SIZE = 16.0f;
+    static constexpr float MIN_UI_SCALE = 0.75f;
+    static constexpr float MAX_UI_SCALE = 3.0f;
+    static constexpr float MIN_FONT_SIZE = 10.0f;
+    static constexpr float MAX_FONT_SIZE = 32.0f;
+    
+    void reset() {
+        uiScale = DEFAULT_UI_SCALE;
+        fontSize = DEFAULT_FONT_SIZE;
+        highContrast = false;
+        reduceMotion = false;
+        keyboardNavEnabled = true;
+        showFocusIndicators = true;
+        invertColors = false;
+        cursorSize = 1.0f;
+    }
+};
 
 struct Preset;
 struct AnalysisData;
@@ -156,14 +197,12 @@ struct LeniaParams {
     float edgeFadeY{0.1f};
     int   displayEdgeMode{0};
 
-    // Kernel advanced features
     float kernelAnisotropy{0.0f};
     float kernelAnisotropyAngle{0.0f};
     bool  kernelTimeVarying{false};
     float kernelPulseFrequency{0.0f};
     int   kernelModifier{0};
     
-    // Memory/GPU monitoring
     bool  showResourceMonitor{false};
     int   gpuMemoryUsedMB{0};
     int   gpuMemoryTotalMB{0};
@@ -344,6 +383,15 @@ public:
     void triggerPauseOverlay(bool isPaused);
     void updatePauseOverlay(float deltaTime);
     void renderPauseOverlay(int windowW, int windowH);
+    
+    AccessibilitySettings& getAccessibilitySettings() { return m_accessibilitySettings; }
+    const AccessibilitySettings& getAccessibilitySettings() const { return m_accessibilitySettings; }
+    void setAccessibilitySettings(const AccessibilitySettings& settings);
+    void applyUIScale(float scale);
+    void applyFontSize(float size);
+    void applyHighContrastTheme(bool enable);
+    void saveAccessibilitySettings() const;
+    void loadAccessibilitySettings();
 
 private:
     bool                     m_initialized{false};
@@ -367,6 +415,14 @@ private:
     float m_pauseOverlayAlpha{0.0f};
     bool  m_pauseOverlayPlaying{false};
     bool  m_lastPausedState{true};
+    
+    AccessibilitySettings m_accessibilitySettings;
+    GLFWwindow* m_window{nullptr};
+    float m_dpiScale{1.0f};
+    float m_lastStyleScale{1.0f};
+    ImFont* m_defaultFont{nullptr};
+    bool m_needsFontRebuild{false};
+    bool m_needsStyleUpdate{false};
 
     void drawGrowthPlot(LeniaParams& params);
     void drawKernelCrossSection(GLuint kernelTex, int kernelDiam);
@@ -376,6 +432,12 @@ private:
     void drawGraphWithAxes(const char* label, const float* data, int count, float yMin, float yMax,
                            const char* xLabel, const char* yLabel, float height, unsigned int lineColor);
     bool sectionHeader(const char* label, int sectionIdx, bool defaultOpen = false);
+    
+    void renderAccessibilitySection();
+    void applyKeyboardNavigationSettings();
+    void initHighContrastStyle();
+    void updateStyle();
+    void rebuildFonts();
 };
 
 }

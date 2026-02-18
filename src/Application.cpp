@@ -1,6 +1,7 @@
 #include "Application.hpp"
 #include "LeniaEngine.hpp"
 #include "Presets.hpp"
+#include "Localization.hpp"
 #include "Utils/Logger.hpp"
 #include <glad/glad.h>
 #include "Utils/GLUtils.hpp"
@@ -44,6 +45,9 @@ Application::~Application() {
 }
 
 bool Application::init(int width, int height, const std::string& title) {
+    // Initialize localization system first
+    Localization::instance().init(Language::English);
+    
     if (!initWindow(width, height, title)) return false;
     if (!initGL()) return false;
 
