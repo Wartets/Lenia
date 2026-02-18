@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Lenia - High-performance GPU-accelerated Artificial Life Simulator. Real-time continuous cellular automaton system producing life-like emergent behaviors.">
+    <meta name="keywords" content="Lenia, artificial life, cellular automaton, GPU, OpenGL, simulation, C++">
+    <meta name="author" content="Colin Bossu Réaubourg (Wartets)">
+    <title>Lenia</title>
+	<link rel="icon" href="https://wartets.github.io/N-Body-Problem/image/browser-icon.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+    <!-- Skip to Content Link (Accessibility) -->
+    <a href="#main-content" class="skip-to-content">Skip to main content</a>
+
+    <!-- Navigation Header -->
+    <header class="main-header">
+        <div class="header-container">
+            <div class="logo">
+                <span class="logo-icon">◉</span>
+                <span class="logo-text">Lenia</span>
+                <span class="version-badge">v1.1.0</span>
+            </div>
+            <nav class="main-nav" role="navigation" aria-label="Main navigation">
+                <button class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                    <span class="hamburger"></span>
+                </button>
+                <ul class="nav-list">
+                    <li><a href="#home" class="nav-link active" data-tab="home">Home</a></li>
+                    <li><a href="#theory" class="nav-link" data-tab="theory">Theory</a></li>
+                    <li><a href="#features" class="nav-link" data-tab="features">Features</a></li>
+                    <li><a href="#installation" class="nav-link" data-tab="installation">Installation</a></li>
+                    <li><a href="#about" class="nav-link" data-tab="about">About</a></li>
+                </ul>
+            </nav>
+            <a href="https://github.com/Wartets/Lenia" target="_blank" rel="noopener noreferrer" class="github-link" aria-label="View on GitHub">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content" id="main-content">
+        <!-- Home Tab -->
+        <section id="home" class="tab-content active" aria-labelledby="home-tab">
+            <div class="hero-section">
+                <div class="simulation-viewport">
+                    <div class="viewport-frame">
+                        <div class="viewport-header">
+                            <span class="viewport-title">Simulation Viewport</span>
+                            <div class="viewport-controls">
+                                <span class="control-dot red"></span>
+                                <span class="control-dot yellow"></span>
+                                <span class="control-dot green"></span>
+                            </div>
+                        </div>
+                        <div class="viewport-canvas">
+                            <canvas id="lenia-placeholder" aria-label="Lenia simulation placeholder"></canvas>
+                            <div class="viewport-overlay">
+                                <div class="lenia-logo-large">◉</div>
+                                <h1 class="hero-title">Lenia</h1>
+                                <p class="hero-subtitle">Continuous Cellular Automata</p>
+                            </div>
+                            <div class="viewport-stats">
+                                <span class="stat">FPS: 60</span>
+                                <span class="stat">Grid: 512×512</span>
+                                <span class="stat">Gcells/s: 15.7</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-content">
+                    <div class="tagline-box">
+                        <h2 class="tagline">Real-Time GPU-Accelerated<br>Artificial Life Simulator</h2>
+                        <p class="hero-description">
+                            A desktop-native implementation of Lenia, the continuous cellular automaton system discovered by Bert Chan. 
+                            Built from the ground up in C++20 with OpenGL 4.5+ compute shaders, this simulator achieves real-time 
+                            performance on grids up to 2048×2048 cells while maintaining smooth 60+ FPS interaction.
+                        </p>
+                        <p class="hero-description">
+                            The engine supports classic single-channel Lenia, multichannel RGB dynamics with up to 16 simultaneous 
+                            interaction rules, and includes an extensive library of 548 pre-catalogued species ready for exploration.
+                        </p>
+                        <div class="hero-badges">
+                            <span class="badge">C++20</span>
+                            <span class="badge">OpenGL 4.5+</span>
+                            <span class="badge">GPU Compute</span>
+                            <span class="badge">Windows</span>
+                        </div>
+                        <div class="hero-actions">
+                            <a href="https://github.com/Wartets/Lenia/releases" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+                                </svg>
+                                Download Latest
+                            </a>
+                            <a href="#installation" class="btn btn-secondary" data-tab-link="installation">
+                                Getting Started
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-preview">
+                <h3 class="section-title">Core Capabilities</h3>
+                <div class="preview-grid">
+                    <div class="preview-card">
+                        <div class="card-icon-wrapper">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 1.45-.39 2.81-1.06 3.99l1.73 1c.83-1.51 1.33-3.22 1.33-5.05 0-5.18-3.95-9.45-9-9.95zM12 19c-3.87 0-7-3.13-7-7 0-3.53 2.61-6.43 6-6.92V2.05c-5.06.5-9 4.76-9 9.95 0 5.52 4.47 10 9.99 10 3.31 0 6.24-1.61 8.06-4.09l-1.73-1A7.976 7.976 0 0112 19z"/></svg>
+                        </div>
+                        <h4>GPU Compute Pipeline</h4>
+                        <p>The entire simulation state resides in VRAM using double-buffered textures. Convolution, growth function evaluation, and state integration execute as parallel compute shader dispatches, achieving throughput exceeding 10 billion cell updates per second on modern hardware.</p>
+                    </div>
+                    <div class="preview-card">
+                        <div class="card-icon-wrapper">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                        </div>
+                        <h4>548 Catalogued Species</h4>
+                        <p>An extensive preset library spanning single-channel creatures like Orbium, Scutium, and Hydrogeminium, through to complex multichannel organisms exhibiting predator-prey relationships. Each species includes tuned parameters for stable locomotion and pattern preservation.</p>
+                    </div>
+                    <div class="preview-card">
+                        <div class="card-icon-wrapper">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+                        </div>
+                        <h4>Multichannel Dynamics</h4>
+                        <p>Support for 1-3 independent channels visualized as RGB, with up to 16 simultaneous interaction rules. Cross-channel growth enables complex emergent behaviors: symbiosis, competition, and predation patterns that single-channel systems cannot produce.</p>
+                    </div>
+                    <div class="preview-card">
+                        <div class="card-icon-wrapper">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                        </div>
+                        <h4>Real-Time Analysis</h4>
+                        <p>Live pattern tracking computes mass, centroid, velocity, and periodic behavior detection. Auto-pause triggers when patterns stabilize or go extinct. Professional graphing with labeled axes provides temporal visualization of all tracked metrics.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="architecture-overview">
+                <h3 class="section-title">Rendering Pipeline</h3>
+                <div class="pipeline-visual">
+                    <div class="pipeline-stage">
+                        <div class="stage-header">Kernel Generation</div>
+                        <div class="stage-body">
+                            <p>Compute shader generates normalized kernel texture from parameters (R, β, α). Supports 10 kernel types including Gaussian shell, polynomial bump, and multi-ring configurations.</p>
+                            <a href="https://github.com/Wartets/Lenia/blob/main/assets/shaders/kernel_gen.comp" target="_blank" rel="noopener noreferrer" class="source-link">kernel_gen.comp</a>
+                        </div>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-stage">
+                        <div class="stage-header">Convolution</div>
+                        <div class="stage-body">
+                            <p>Spatial convolution computes neighborhood potential for each cell. Workgroup-local caching minimizes global memory bandwidth. Output stored in intermediate texture.</p>
+                            <a href="https://github.com/Wartets/Lenia/blob/main/assets/shaders/sim_spatial.comp" target="_blank" rel="noopener noreferrer" class="source-link">sim_spatial.comp</a>
+                        </div>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-stage">
+                        <div class="stage-header">Growth & Integration</div>
+                        <div class="stage-body">
+                            <p>Growth function maps neighborhood potential to state delta. 11 function types available. Euler integration with configurable Δt updates state, clamped to [0,1].</p>
+                            <a href="https://github.com/Wartets/Lenia/blob/main/assets/shaders/sim_multichannel.comp" target="_blank" rel="noopener noreferrer" class="source-link">sim_multichannel.comp</a>
+                        </div>
+                    </div>
+                    <div class="pipeline-connector"></div>
+                    <div class="pipeline-stage">
+                        <div class="stage-header">Display Render</div>
+                        <div class="stage-body">
+                            <p>Fragment shader applies selected colormap to state texture. Supports multiple display modes: world view, kernel overlay, growth field, delta visualization.</p>
+                            <a href="https://github.com/Wartets/Lenia/blob/main/assets/shaders/display.frag" target="_blank" rel="noopener noreferrer" class="source-link">display.frag</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Theory Tab -->
+        <section id="theory" class="tab-content" aria-labelledby="theory-tab">
+            <div class="content-container">
+                <h2 class="page-title">Theory & Mechanics</h2>
+                
+                <div class="theory-intro">
+                    <p class="intro-text">
+                        Lenia is a continuous generalization of cellular automata discovered by <strong>Bert Wang-Chak Chan</strong> in 2018. 
+                        Unlike discrete systems like Conway's Game of Life, Lenia operates in continuous space, time, and state, 
+                        producing remarkably life-like emergent behaviors. The name "Lenia" derives from the Latin word <em>lenis</em>, 
+                        meaning "smooth" or "gentle", a fitting description for the fluid, organic patterns that emerge from its rules.
+                    </p>
+                    <p class="intro-text">
+                        What makes Lenia remarkable is its capacity for open-ended evolution. By adjusting just a handful of parameters, 
+                        researchers have discovered thousands of distinct "species", stable, self-organizing patterns that move, pulse, 
+                        and interact in ways reminiscent of microscopic organisms. Some glide smoothly across the grid, others spin or 
+                        oscillate, and some even split or merge. This richness emerges from the interplay of local interactions governed 
+                        by mathematical functions.
+                    </p>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Historical Context</h3>
+                    <p>
+                        The journey from discrete to continuous cellular automata spans several decades of mathematical 
+                        and computational exploration, building on foundations laid by pioneers in computing and mathematics.
+                    </p>
+                    <div class="history-timeline-enhanced">
+                        <div class="history-era">
+                            <div class="history-era-header">
+                                <span class="history-era-year">1940s</span>
+                                <span class="history-era-title">Foundations of Cellular Automata</span>
+                                <span class="history-era-person">John von Neumann & Stanislaw Ulam</span>
+                            </div>
+                            <p class="history-era-content">
+                                Von Neumann, working with Ulam at Los Alamos, formalized the concept of cellular automata 
+                                while attempting to design self-replicating systems. His goal was to create a mathematical 
+                                model that could reproduce itself and perform universal computation, proving that machines 
+                                could theoretically build copies of themselves. This laid the groundwork for all future 
+                                research in artificial life and computational biology.
+                            </p>
+                        </div>
+                        <div class="history-era">
+                            <div class="history-era-header">
+                                <span class="history-era-year">1970</span>
+                                <span class="history-era-title">Conway's Game of Life</span>
+                                <span class="history-era-person">John Horton Conway</span>
+                            </div>
+                            <p class="history-era-content">
+                                British mathematician John Conway created the Game of Life, demonstrating that incredibly 
+                                simple rules could produce complex, seemingly purposeful behavior. With just two states 
+                                (alive/dead) and four rules based on neighbor counts, Conway's automaton could generate 
+                                gliders, oscillators, and even universal computers. This captured public imagination and 
+                                inspired generations of researchers to explore emergent complexity.
+                            </p>
+                            <a href="https://playgameoflife.com/" target="_blank" rel="noopener noreferrer" class="history-era-link">
+                                Try Game of Life →
+                            </a>
+                        </div>
+                        <div class="history-era">
+                            <div class="history-era-header">
+                                <span class="history-era-year">2012</span>
+                                <span class="history-era-title">SmoothLife</span>
+                                <span class="history-era-person">Stephan Rafler</span>
+                            </div>
+                            <p class="history-era-content">
+                                Stephan Rafler introduced SmoothLife, a crucial stepping stone toward Lenia. By allowing 
+                                continuous states (values between 0 and 1) while keeping discrete time steps, SmoothLife 
+                                created smoother, more organic-looking patterns than the Game of Life. This demonstrated 
+                                that continuity in state space alone could dramatically change the character of emergent patterns.
+                            </p>
+                            <a href="https://arxiv.org/abs/1111.1567" target="_blank" rel="noopener noreferrer" class="history-era-link">
+                                Read Paper →
+                            </a>
+                        </div>
+                        <div class="history-era">
+                            <div class="history-era-header">
+                                <span class="history-era-year">2018</span>
+                                <span class="history-era-title">Lenia: Biology of Artificial Life</span>
+                                <span class="history-era-person">Bert Wang-Chak Chan</span>
+                            </div>
+                            <p class="history-era-content">
+                                Bert Chan completed the transition to full continuity by making space, time, and state 
+                                all continuous. The result was Lenia, a system where sharp boundaries dissolve into gradients, 
+                                discrete steps become smooth flows, and rigid grids give way to circular, radially-symmetric 
+                                neighborhoods. Chan discovered that this continuous parameter space contains thousands of 
+                                stable, self-organizing "species" with remarkably life-like behaviors.
+                            </p>
+                            <a href="https://arxiv.org/abs/1812.05433" target="_blank" rel="noopener noreferrer" class="history-era-link">
+                                Read Original Paper →
+                            </a>
+                        </div>
+                        <div class="history-era">
+                            <div class="history-era-header">
+                                <span class="history-era-year">2020+</span>
+                                <span class="history-era-title">Expanded Universe & Evolution</span>
+                                <span class="history-era-person">Bert Chan & Research Community</span>
+                            </div>
+                            <p class="history-era-content">
+                                Research expanded into multichannel systems, asymmetric kernels, and integration with 
+                                machine learning. Evolutionary algorithms were applied to automatically discover new species, 
+                                while Neural Cellular Automata combined Lenia principles with differentiable programming. 
+                                The community has now catalogued over 500 distinct species across multiple variants.
+                            </p>
+                            <a href="https://arxiv.org/abs/2005.03742" target="_blank" rel="noopener noreferrer" class="history-era-link">
+                                Lenia and Expanded Universe →
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">From Discrete to Continuous</h3>
+                    <p>
+                        Understanding Lenia requires grasping three fundamental transitions from classical cellular automata. 
+                        Each transition introduces new mathematical richness and dramatically expands the space of possible behaviors.
+                    </p>
+                    <div class="concept-grid">
+                        <div class="concept-card">
+                            <h4>Continuous States</h4>
+                            <p>
+                                Instead of binary alive/dead states, each cell holds a continuous value in the range <span class="math-inline">[0, 1]</span>. 
+                                This allows for smooth gradients and more organic-looking patterns.
+                            </p>
+                            <div class="formula-box">
+                                <span class="formula-label">State Space:</span>
+                                <span class="math-block">$$A^t : \mathbb{Z}^2 \rightarrow [0, 1]$$</span>
+                            </div>
+                            <div class="concept-details">
+                                <p>
+                                    <strong>Why it matters:</strong> Continuous states enable gradual transitions rather than abrupt on/off switching. 
+                                    A cell can be "partially alive", think of it as cell density or concentration rather than presence/absence. 
+                                    This creates smooth boundaries between patterns and their surroundings, producing the organic, fluid appearance 
+                                    characteristic of Lenia creatures.
+                                </p>
+                                <p>
+                                    <strong>Physical intuition:</strong> Imagine each cell as a container holding some amount of a substance 
+                                    (between empty=0 and full=1). The simulation describes how this substance flows and transforms based on local conditions.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="concept-card">
+                            <h4>Continuous Neighborhoods</h4>
+                            <p>
+                                The neighborhood is defined by a kernel function <span class="math-inline">K(r)</span> that smoothly weights 
+                                contributions from nearby cells based on distance, rather than using a fixed Moore or von Neumann neighborhood.
+                            </p>
+                            <div class="formula-box">
+                                <span class="formula-label">Kernel Function:</span>
+                                <span class="math-block">$$K(r) = \exp\left(-\frac{(r - \beta R)^2}{2(\alpha R)^2}\right)$$</span>
+                            </div>
+                            <div class="concept-details">
+                                <p>
+                                    <strong>Why it matters:</strong> Instead of counting neighbors in a fixed square or cross pattern, 
+                                    the kernel defines a smooth influence profile. Cells at distance <span class="math-inline">r</span> contribute 
+                                    proportionally to <span class="math-inline">K(r)</span>. The Gaussian shell kernel creates a ring of maximum 
+                                    influence at distance <span class="math-inline">\beta R</span>, with the ring's thickness controlled by <span class="math-inline">\alpha</span>.
+                                </p>
+                                <p>
+                                    <strong>Physical intuition:</strong> Think of dropping a pebble in water, the ripples have maximum amplitude 
+                                    at a certain distance from the center, then decay. The kernel describes this influence pattern mathematically.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="concept-card">
+                            <h4>Continuous Time</h4>
+                            <p>
+                                Updates occur with a configurable time step <span class="math-inline">\Delta t</span>, allowing for smooth 
+                                temporal evolution rather than discrete jumps.
+                            </p>
+                            <div class="formula-box">
+                                <span class="formula-label">Euler Integration:</span>
+                                <span class="math-block">$$A^{t+\Delta t} = A^t + \Delta t \cdot G(N^t)$$</span>
+                            </div>
+                            <div class="concept-details">
+                                <p>
+                                    <strong>Why it matters:</strong> Discrete automata update all cells simultaneously in a single "tick." 
+                                    Continuous time means we can take arbitrarily small steps, making the evolution smoother and more predictable. 
+                                    Smaller <span class="math-inline">\Delta t</span> values give finer temporal resolution but slower real-time evolution.
+                                </p>
+                                <p>
+                                    <strong>Mathematical connection:</strong> As <span class="math-inline">\Delta t \rightarrow 0</span>, 
+                                    the discrete update approaches a differential equation: <span class="math-inline">\frac{\partial A}{\partial t} = G(K * A)</span>. 
+                                    Lenia is thus a discretization of a PDE (partial differential equation).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">The Lenia Update Rule</h3>
+                    <p>
+                        The simulation follows a three-step process each frame: <strong>Kernel Convolution</strong>, 
+                        <strong>Growth Function Application</strong>, and <strong>State Integration</strong>.
+                    </p>
+
+                    <div class="pipeline-diagram">
+                        <div class="pipeline-step">
+                            <div class="step-number">1</div>
+                            <div class="step-content">
+                                <h4>Kernel Generation</h4>
+                                <p>Generate the convolution kernel based on radius <span class="math-inline">R</span> and kernel parameters.</p>
+                                <div class="formula-box compact">
+                                    <span class="math-block">$$K_r = \frac{1}{2\pi} \exp\left(-\frac{(r/R - \beta)^2}{2\alpha^2}\right)$$</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-step">
+                            <div class="step-number">2</div>
+                            <div class="step-content">
+                                <h4>Convolution</h4>
+                                <p>Compute neighborhood potential via convolution with the kernel.</p>
+                                <div class="formula-box compact">
+                                    <span class="math-block">$$N = K * A = \sum_{x,y} K(x,y) \cdot A(x,y)$$</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-step">
+                            <div class="step-number">3</div>
+                            <div class="step-content">
+                                <h4>Growth Function</h4>
+                                <p>Apply the growth function to determine state change.</p>
+                                <div class="formula-box compact">
+                                    <span class="math-block">$$G(N) = 2\exp\left(-\frac{(N - \mu)^2}{2\sigma^2}\right) - 1$$</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pipeline-arrow">→</div>
+                        <div class="pipeline-step">
+                            <div class="step-number">4</div>
+                            <div class="step-content">
+                                <h4>Integration</h4>
+                                <p>Update the state with clamping to valid range.</p>
+                                <div class="formula-box compact">
+                                    <span class="math-block">$$A' = \text{clamp}(A + \Delta t \cdot G, 0, 1)$$</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Key Parameters</h3>
+                    <div class="params-table-container">
+                        <table class="params-table">
+                            <thead>
+                                <tr>
+                                    <th>Parameter</th>
+                                    <th>Symbol</th>
+                                    <th>Range</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Kernel Radius</td>
+                                    <td class="math-cell">R</td>
+                                    <td>1 - 50</td>
+                                    <td>Size of the neighborhood in cells. Larger values create smoother, larger-scale patterns.</td>
+                                </tr>
+                                <tr>
+                                    <td>Growth Center</td>
+                                    <td class="math-cell">μ (mu)</td>
+                                    <td>0.0 - 1.0</td>
+                                    <td>The optimal neighborhood potential for growth. Determines which density promotes life.</td>
+                                </tr>
+                                <tr>
+                                    <td>Growth Width</td>
+                                    <td class="math-cell">σ (sigma)</td>
+                                    <td>0.001 - 0.3</td>
+                                    <td>Tolerance around the optimal value. Smaller values create sharper growth responses.</td>
+                                </tr>
+                                <tr>
+                                    <td>Time Step</td>
+                                    <td class="math-cell">Δt</td>
+                                    <td>0.01 - 1.0</td>
+                                    <td>Integration step size. Smaller values give smoother evolution but slower simulation.</td>
+                                </tr>
+                                <tr>
+                                    <td>Kernel Peak</td>
+                                    <td class="math-cell">β (beta)</td>
+                                    <td>0.0 - 1.0</td>
+                                    <td>Relative position of the kernel's peak within the radius. Controls ring vs. disk behavior.</td>
+                                </tr>
+                                <tr>
+                                    <td>Kernel Width</td>
+                                    <td class="math-cell">α (alpha)</td>
+                                    <td>0.001 - 1.0</td>
+                                    <td>Spread of the kernel bell curve. Smaller values create sharper, more ring-like kernels.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Kernel Types</h3>
+                    <p>
+                        The kernel defines how neighboring cells contribute to the neighborhood potential. This implementation provides 
+                        <strong>10 distinct kernel types</strong>, each creating different spatial interaction patterns. The kernel is 
+                        always normalized so that its integral equals 1.
+                    </p>
+                    <div class="kernel-types-grid">
+                        <div class="kernel-type">
+                            <h5>Gaussian Shell</h5>
+                            <p>Ring-shaped kernel with Gaussian cross-section. The standard Lenia kernel.</p>
+                            <div class="formula-box compact">
+                                <span class="math-block">$$K(r) = \exp\left(-\frac{(r/R - \beta)^2}{2\alpha^2}\right)$$</span>
+                            </div>
+                        </div>
+                        <div class="kernel-type">
+                            <h5>Polynomial Bump</h5>
+                            <p>Smooth bump function with compact support and C∞ continuity.</p>
+                            <div class="formula-box compact">
+                                <span class="math-block">$$K(r) = \left(1 - \left(\frac{r/R - \beta}{\alpha}\right)^2\right)^+_n$$</span>
+                            </div>
+                        </div>
+                        <div class="kernel-type">
+                            <h5>Multi-Ring</h5>
+                            <p>Multiple concentric rings specified by an array of peak positions.</p>
+                            <div class="formula-box compact">
+                                <span class="math-block">$$K(r) = \sum_i \exp\left(-\frac{(r/R - \beta_i)^2}{2\alpha^2}\right)$$</span>
+                            </div>
+                        </div>
+                        <div class="kernel-type">
+                            <h5>Rectangular</h5>
+                            <p>Step function with sharp boundaries, creates discrete-like behavior.</p>
+                            <div class="formula-box compact">
+                                <span class="math-block">$$K(r) = \mathbf{1}_{[\beta-\alpha, \beta+\alpha]}(r/R)$$</span>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="formula-note">
+                        The choice of kernel fundamentally affects the character of emergent patterns. Gaussian shells tend to produce 
+                        smooth, organic creatures, while rectangular kernels can create more crystalline or geometric forms. Multi-ring 
+                        kernels enable complex behaviors where different distance scales interact.
+                    </p>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Growth Functions</h3>
+                    <p>
+                        The growth function <span class="math-inline">G(n)</span> maps the neighborhood potential <span class="math-inline">n</span> 
+                        to a state change rate. It determines whether a cell grows (positive), shrinks (negative), or stays stable (zero). 
+                        This implementation provides <strong>11 different growth functions</strong>, each producing distinct dynamics:
+                    </p>
+                    <div class="growth-functions-grid">
+                        <div class="growth-func">
+                            <span class="func-name">Lenia Gaussian</span>
+                            <span class="func-formula math-inline">$$2e^{-\frac{(n-\mu)^2}{2\sigma^2}} - 1$$</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">Step Function</span>
+                            <span class="func-formula math-inline">$$\begin{cases} 1 & |n-\mu| < \sigma \\ -1 & \text{else} \end{cases}$$</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">SmoothLife</span>
+                            <span class="func-formula math-inline">$$\sigma(n, \mu, \sigma)$$</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">Polynomial</span>
+                            <span class="func-formula math-inline">$$1 - \left(\frac{n-\mu}{\sigma}\right)^4$$</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">Double Peak</span>
+                            <span class="func-formula math-inline">Combined dual Gaussian</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">Exponential</span>
+                            <span class="func-formula math-inline">$$e^{-|n-\mu|/\sigma} - 0.5$$</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">Triangular</span>
+                            <span class="func-formula math-inline">$$1 - |n-\mu|/\sigma$$</span>
+                        </div>
+                        <div class="growth-func">
+                            <span class="func-name">Cosine</span>
+                            <span class="func-formula math-inline">$$\cos\left(\pi\frac{n-\mu}{\sigma}\right)$$</span>
+                        </div>
+                    </div>
+                    <p class="formula-note">
+                        The Gaussian growth function is the most commonly used because it provides a smooth, bell-shaped response that 
+                        promotes stability. The peak at μ represents the "ideal" neighborhood density, too sparse or too crowded causes decay.
+                    </p>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Multichannel Lenia</h3>
+                    <p>
+                        Multichannel Lenia extends the basic model by introducing multiple interacting channels (visualized as RGB). 
+                        Each channel can have independent kernels and growth functions, with cross-channel interactions enabling 
+                        complex predator-prey dynamics and symbiotic relationships. This implementation supports up to <strong>3 channels</strong> 
+                        with <strong>16 simultaneous interaction rules</strong>.
+                    </p>
+                    <div class="formula-box large">
+                        <span class="formula-label">Multichannel Update:</span>
+                        <span class="math-block">$$A_c^{t+1} = A_c^t + \Delta t \sum_{r=1}^{R} h_r \cdot G_r\left(\sum_{c'} w_{r,c'} \cdot (K_r * A_{c'}^t)\right)$$</span>
+                    </div>
+                    <p class="formula-note">
+                        Where <span class="math-inline">$c$</span> is the target channel, <span class="math-inline">$r$</span> indexes the rules, 
+                        <span class="math-inline">$h_r$</span> is the rule weight, and <span class="math-inline">$w_{r,c'}$</span> are the cross-channel weights.
+                    </p>
+                    <div class="multichannel-explanation">
+                        <h4>Channel Interactions</h4>
+                        <p>
+                            Cross-channel weights allow one channel to influence another's growth. For example, channel A might grow where channel B 
+                            is present (attraction/symbiosis) or decay where B is present (competition/predation). This creates an ecosystem-like 
+                            dynamic where different "species" can coexist, compete, or cooperate.
+                        </p>
+                        <div class="interaction-examples">
+                            <div class="interaction-example">
+                                <strong>Symbiosis:</strong> Channel A enhances channel B's growth, and vice versa, they thrive together.
+                            </div>
+                            <div class="interaction-example">
+                                <strong>Predation:</strong> Channel A grows where B exists but causes B to decay, a predator-prey dynamic.
+                            </div>
+                            <div class="interaction-example">
+                                <strong>Competition:</strong> Both channels inhibit each other, only one can dominate a region.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Simulation Variants</h3>
+                    <p>
+                        This implementation supports multiple cellular automaton variants beyond classic Lenia, 
+                        allowing comparison and exploration of different rule systems. Click on any variant to learn more:
+                    </p>
+                    <div class="variants-detailed-grid">
+                        <div class="variant-detailed" onclick="this.classList.toggle('expanded')" role="button" tabindex="0">
+                            <h4>Classic Lenia</h4>
+                            <p>
+                                The original continuous cellular automaton with Gaussian kernel shells and growth functions. 
+                                State, space, and time are all continuous, producing smooth, organic patterns.
+                            </p>
+                            <div class="variant-params">
+                                <span class="param-tag">Continuous</span>
+                                <span class="param-tag">Gaussian</span>
+                                <span class="param-tag">Single-channel</span>
+                            </div>
+                            <div class="variant-extra-info">
+                                <p>
+                                    <strong>Best for:</strong> Discovering classic Lenia species like Orbium, Scutium, and Hydrogeminium. 
+                                    The continuous nature allows for smooth morphology transitions and stable locomotion.
+                                </p>
+                                <p>
+                                    <strong>Key insight:</strong> Most species exist in very narrow parameter bands, small changes 
+                                    of 0.01 in growth center (μ) can mean the difference between stable life and extinction.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="variant-detailed" onclick="this.classList.toggle('expanded')" role="button" tabindex="0">
+                            <h4>Multi-channel Lenia</h4>
+                            <p>
+                                Extends classic Lenia with 2-3 interacting channels visualized as RGB colors. Each channel 
+                                can sense and influence others through weighted connections.
+                            </p>
+                            <div class="variant-params">
+                                <span class="param-tag">3 channels</span>
+                                <span class="param-tag">16 rules</span>
+                                <span class="param-tag">Cross-coupling</span>
+                            </div>
+                            <div class="variant-extra-info">
+                                <p>
+                                    <strong>Best for:</strong> Creating ecosystems with predator-prey dynamics, symbiotic relationships, 
+                                    and competitive interactions between different "species" coexisting in the same space.
+                                </p>
+                                <p>
+                                    <strong>Key insight:</strong> Cross-channel weights determine relationships, positive weights create 
+                                    attraction/symbiosis, negative weights create competition/predation.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="variant-detailed" onclick="this.classList.toggle('expanded')" role="button" tabindex="0">
+                            <h4>SmoothLife</h4>
+                            <p>
+                                Stephan Rafler's continuous-state variant uses separate inner and outer ring neighborhoods 
+                                with sigmoid transition functions.
+                            </p>
+                            <div class="variant-params">
+                                <span class="param-tag">Dual-ring</span>
+                                <span class="param-tag">Sigmoid</span>
+                                <span class="param-tag">Discrete time</span>
+                            </div>
+                            <div class="variant-extra-info">
+                                <p>
+                                    <strong>Best for:</strong> Patterns that benefit from the dual-neighborhood structure, creating 
+                                    different behaviors for "interior" vs "exterior" interactions.
+                                </p>
+                                <p>
+                                    <strong>Key insight:</strong> The discrete time step preserved from Game of Life creates distinctly 
+                                    different dynamics than Lenia's continuous time, patterns tend to be more crystalline.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="variant-detailed" onclick="this.classList.toggle('expanded')" role="button" tabindex="0">
+                            <h4>Conway's Game of Life</h4>
+                            <p>
+                                The classic discrete cellular automaton included for comparison. Binary states, 
+                                Moore neighborhood, and the B3/S23 rule.
+                            </p>
+                            <div class="variant-params">
+                                <span class="param-tag">Binary</span>
+                                <span class="param-tag">Moore</span>
+                                <span class="param-tag">B3/S23</span>
+                            </div>
+                            <div class="variant-extra-info">
+                                <p>
+                                    <strong>Best for:</strong> Classic patterns like gliders, oscillators, spaceships, and Turing-complete 
+                                    constructions. A great baseline for understanding discrete vs. continuous dynamics.
+                                </p>
+                                <p>
+                                    <strong>Key insight:</strong> Despite its simplicity, Game of Life is Turing-complete, it can compute 
+                                    anything a computer can, given enough space and time.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="variant-detailed" onclick="this.classList.toggle('expanded')" role="button" tabindex="0">
+                            <h4>Larger-Than-Life</h4>
+                            <p>
+                                Extended neighborhood ranges (up to radius 50) with threshold-based birth/survival rules. 
+                                Creates smooth, blob-like patterns.
+                            </p>
+                            <div class="variant-params">
+                                <span class="param-tag">Large radius</span>
+                                <span class="param-tag">Threshold</span>
+                                <span class="param-tag">Bugs</span>
+                            </div>
+                            <div class="variant-extra-info">
+                                <p>
+                                    <strong>Best for:</strong> The famous "Bugs" rule produces active, amoeba-like organisms that move, 
+                                    eat, and reproduce, some of the most life-like behavior in discrete automata.
+                                </p>
+                                <p>
+                                    <strong>Key insight:</strong> Large neighborhoods smooth out small-scale noise and create more 
+                                    coherent, blob-like structures compared to small-neighborhood rules.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="variant-detailed" onclick="this.classList.toggle('expanded')" role="button" tabindex="0">
+                            <h4>Primordia / Genesis</h4>
+                            <p>
+                                Asymmetric kernel configurations that break rotational symmetry. This enables directional 
+                                movement and more complex morphologies.
+                            </p>
+                            <div class="variant-params">
+                                <span class="param-tag">Asymmetric</span>
+                                <span class="param-tag">Directional</span>
+                                <span class="param-tag">Flow</span>
+                            </div>
+                            <div class="variant-extra-info">
+                                <p>
+                                    <strong>Best for:</strong> Creating patterns with inherent directionality, creatures that "know" 
+                                    which way is forward without needing environmental cues.
+                                </p>
+                                <p>
+                                    <strong>Key insight:</strong> Symmetry breaking is essential for certain biological behaviors. 
+                                    Asymmetric kernels can create flows and directed movement patterns.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Pattern Taxonomy</h3>
+                    <p>
+                        Lenia creatures are classified by their morphology and behavior. The naming convention uses 
+                        Latin-style genus and species names based on observable characteristics:
+                    </p>
+                    <div class="taxonomy-grid">
+                        <div class="taxon-card">
+                            <div class="taxon-image">
+                                <img src="images/species/orbium.png" alt="Orbium species" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="taxon-image-placeholder" style="display: none;">◉</span>
+                            </div>
+                            <h5>Orbium</h5>
+                            <p>Circular, ring-shaped creatures that glide smoothly. The simplest stable locomoting patterns and often the first species discovered in parameter searches.</p>
+                        </div>
+                        <div class="taxon-card">
+                            <div class="taxon-image">
+                                <img src="images/species/scutium.png" alt="Scutium species" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="taxon-image-placeholder" style="display: none;">◈</span>
+                            </div>
+                            <h5>Scutium</h5>
+                            <p>Shield-shaped organisms with distinct head/tail orientation. Often feature trailing appendages and exhibit directional movement.</p>
+                        </div>
+                        <div class="taxon-card">
+                            <div class="taxon-image">
+                                <img src="images/species/hydrogeminium.png" alt="Hydrogeminium species" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="taxon-image-placeholder" style="display: none;">◎</span>
+                            </div>
+                            <h5>Hydrogeminium</h5>
+                            <p>Fluid, water-like patterns that flow and deform while maintaining coherent structure. Named for their liquid-like appearance.</p>
+                        </div>
+                        <!-- Commented because it's not interesting; leave this element here -->
+                        <!-- <div class="taxon-card"> 
+                            <div class="taxon-image">
+                                <img src="images/species/gyroscutum.png" alt="Gyroscutum species" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="taxon-image-placeholder" style="display: none;">⟳</span>
+                            </div>
+                            <h5>Gyroscutum</h5>
+                            <p>Spinning, rotational patterns that move in spiraling trajectories. Their internal structure rotates as they translate across the grid.</p>
+                        </div>
+                        <div class="taxon-card">
+                            <div class="taxon-image">
+                                <img src="images/species/pterygon.png" alt="Pterygon species" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="taxon-image-placeholder" style="display: none;">⌘</span>
+                            </div>
+                            <h5>Pterygon</h5>
+                            <p>Wing-bearing creatures with bilateral symmetry and undulating locomotion. Their appendages beat in coordinated patterns.</p>
+                        </div>
+                        <div class="taxon-card">
+                            <div class="taxon-image">
+                                <img src="images/species/trifolium.png" alt="Trifolium species" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span class="taxon-image-placeholder" style="display: none;">✿</span>
+                            </div>
+                            <h5>Trifolium</h5>
+                            <p>Three-lobed patterns with radial symmetry, often oscillating or pulsing. Can exhibit complex rotation while remaining in place.</p>
+                        </div> -->
+                    </div>
+                    
+                    <div class="discovery-section">
+                        <h4>Species Discovery Methods</h4>
+                        <p>
+                            Discovering new Lenia species is a fascinating challenge that combines systematic exploration with serendipity. 
+                            The parameter space is vast and high-dimensional, even tiny changes to kernel radius, growth center, or time step 
+                            can transform a stable creature into chaos or extinction. The community has developed several sophisticated approaches:
+                        </p>
+                        <div class="discovery-methods-grid">
+                            <div class="discovery-method">
+                                <div class="discovery-icon">
+                                    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                                        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                                    </svg>
+                                </div>
+                                <h5>Stochastic Sampling</h5>
+                                <p>
+                                    Random parameter sampling across the vast search space, followed by manual screening. 
+                                    Typically uses Latin hypercube sampling or quasi-random sequences (Sobol, Halton) for better coverage. 
+                                    Most combinations (~99.9%) produce either extinction or chaotic growth, viable species are rare.
+                                </p>
+                            </div>
+                            <div class="discovery-method">
+                                <div class="discovery-icon">
+                                    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                    </svg>
+                                </div>
+                                <h5>Evolutionary Algorithms</h5>
+                                <p>
+                                    Genetic algorithms and evolution strategies that "breed" parameters by selecting for 
+                                    fitness metrics like pattern coherence, movement, and longevity. CMA-ES (Covariance Matrix Adaptation) 
+                                    is particularly effective for navigating the rugged fitness landscape of Lenia parameters.
+                                </p>
+                            </div>
+                            <div class="discovery-method">
+                                <div class="discovery-icon">
+                                    <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                                        <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                                    </svg>
+                                </div>
+                                <h5>Parameter Interpolation</h5>
+                                <p>
+                                    Starting from known species and gradually varying parameters to find related creatures 
+                                    in nearby parameter space regions. This "morphing" approach often reveals continuous families 
+                                    of species with gradually changing characteristics.
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="discovery-advanced">
+                            <h5>Advanced Machine Learning Approaches</h5>
+                            <p>
+                                Recent research has explored more sophisticated computational approaches to automate and accelerate species discovery:
+                            </p>
+                            <div class="ml-methods-grid">
+                                <div class="ml-method">
+                                    <div class="ml-method-header">
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                        </svg>
+                                        <h6>Neural Network Fitness Prediction</h6>
+                                    </div>
+                                    <p>
+                                        Convolutional neural networks (CNNs) trained on simulation snapshots can predict whether 
+                                        a parameter set will produce interesting patterns, dramatically reducing the need for 
+                                        expensive full simulations. The network learns visual features that correlate with 
+                                        "lifelikeness", coherent boundaries, movement patterns, and structural stability.
+                                    </p>
+                                </div>
+                                <div class="ml-method">
+                                    <div class="ml-method-header">
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                                            <path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>
+                                        </svg>
+                                        <h6>Quality-Diversity Algorithms</h6>
+                                    </div>
+                                    <p>
+                                        Algorithms like MAP-Elites maintain a diverse archive of high-quality solutions, 
+                                        indexed by behavioral descriptors (e.g., speed, size, symmetry). This encourages exploration 
+                                        of the entire behavior space rather than converging to a single optimum, discovering 
+                                        more morphologically diverse species.
+                                    </p>
+                                </div>
+                                <div class="ml-method">
+                                    <div class="ml-method-header">
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                                            <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+                                        </svg>
+                                        <h6>Differentiable Simulation (Neural CA)</h6>
+                                    </div>
+                                    <p>
+                                        By implementing the Lenia update rule as a differentiable computation graph, gradients can 
+                                        be backpropagated through time to directly optimize for target behaviors. This enables 
+                                        "growing" patterns toward specific goals, movement, morphology, or response to stimuli, 
+                                        using standard deep learning optimization.
+                                    </p>
+                                </div>
+                                <div class="ml-method">
+                                    <div class="ml-method-header">
+                                        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                                            <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                                        </svg>
+                                        <h6>Hierarchical Parameter Trees</h6>
+                                    </div>
+                                    <p>
+                                        Organizing the parameter space as a tree structure where branches represent families of 
+                                        related species. Machine learning models can learn to navigate this tree efficiently, 
+                                        pruning unpromising branches early and focusing exploration on fertile regions.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="theory-section">
+                    <h3 class="subsection-title">Boundary Conditions</h3>
+                    <p>
+                        The simulation supports multiple boundary handling modes that affect how patterns interact 
+                        with the edges of the computational domain:
+                    </p>
+                    <ul class="boundary-list">
+                        <li>
+                            <strong>Toroidal (Wrap-around):</strong> Patterns exiting one edge reappear on the opposite side, 
+                            creating an infinite periodic space.
+                        </li>
+                        <li>
+                            <strong>Reflective:</strong> Boundaries act as mirrors, reflecting patterns back into the domain.
+                        </li>
+                        <li>
+                            <strong>Fixed (Zero):</strong> Cells outside the boundary are treated as zero, creating hard walls.
+                        </li>
+                        <li>
+                            <strong>Infinite World:</strong> Chunk-based system allows unlimited exploration with dynamic loading.
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="reference-box">
+                    <h4>Further Reading</h4>
+                    <ul class="reference-list">
+                        <li>
+                            <a href="https://arxiv.org/abs/1812.05433" target="_blank" rel="noopener noreferrer">
+                                Lenia - Biology of Artificial Life (Bert Chan, 2018)
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://arxiv.org/abs/2005.03742" target="_blank" rel="noopener noreferrer">
+                                Lenia and Expanded Universe (Bert Chan, 2020)
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://chakazul.github.io/lenia.html" target="_blank" rel="noopener noreferrer">
+                                Lenia Portal - Interactive Web Explorer
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://www.youtube.com/watch?v=iE46jKYcI4Y" target="_blank" rel="noopener noreferrer">
+                                Science Étonnante - Du Jeu de la Vie à Lenia
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Tab -->
+        <section id="features" class="tab-content" aria-labelledby="features-tab">
+            <div class="content-container">
+                <h2 class="page-title">Application Features</h2>
+
+                <div class="features-section">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                            </svg>
+                        </span>
+                        GPU Acceleration
+                    </h3>
+                    <div class="feature-content">
+                        <p>
+                            The entire simulation runs on the GPU using OpenGL 4.5+ Compute Shaders, achieving 
+                            massive parallelism with minimal CPU overhead. The simulation state lives entirely in VRAM, 
+                            eliminating costly CPU-GPU data transfers during normal operation.
+                        </p>
+                        <div class="feature-showcase">
+                            <div class="feature-showcase-card">
+                                <h4>Performance Characteristics</h4>
+                                <p>
+                                    Throughput scales with GPU compute capability. Modern graphics cards can process 
+                                    billions of cell updates per second, enabling real-time interaction with large grids.
+                                </p>
+                                <div class="feature-stat-row">
+                                    <div class="feature-stat">
+                                        <span class="feature-stat-value">60+ FPS</span>
+                                        <span class="feature-stat-label">at 512×512</span>
+                                    </div>
+                                    <div class="feature-stat">
+                                        <span class="feature-stat-value">10+ Gcells/s</span>
+                                        <span class="feature-stat-label">throughput</span>
+                                    </div>
+                                    <div class="feature-stat">
+                                        <span class="feature-stat-value">Zero-Copy</span>
+                                        <span class="feature-stat-label">VRAM state</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="feature-showcase-card">
+                                <h4>Compute Pipeline</h4>
+                                <p>
+                                    Each frame executes a sequence of compute shader dispatches, with workgroup-local 
+                                    caching minimizing global memory bandwidth.
+                                </p>
+                                <div class="architecture-diagram">
+                                    <code class="pipeline-code">
+                                        Input → Kernel Gen → Convolution → Growth → Update → Render
+                                    </code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-section">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M4 4h4v4H4zm0 6h4v4H4zm0 6h4v4H4zm6-12h4v4h-4zm0 6h4v4h-4zm0 6h4v4h-4zm6-12h4v4h-4zm0 6h4v4h-4zm0 6h4v4h-4z"/>
+                            </svg>
+                        </span>
+                        Simulation Variants
+                    </h3>
+                    <div class="variants-grid">
+                        <div class="variant-card">
+                            <h4>Classic Lenia</h4>
+                            <p>Original continuous cellular automaton with Gaussian kernels and growth functions.</p>
+                        </div>
+                        <div class="variant-card">
+                            <h4>Multi-channel Lenia</h4>
+                            <p>Up to 3 interacting channels (RGB) with 16 simultaneous interaction rules.</p>
+                        </div>
+                        <div class="variant-card">
+                            <h4>SmoothLife</h4>
+                            <p>Continuous variant with separate inner/outer ring neighborhoods.</p>
+                        </div>
+                        <div class="variant-card">
+                            <h4>Game of Life</h4>
+                            <p>Conway's classic rules in discrete mode for comparison.</p>
+                        </div>
+                        <div class="variant-card">
+                            <h4>Larger-Than-Life</h4>
+                            <p>Extended neighborhood ranges with threshold-based rules.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-section">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M12 22C6.49 22 2 17.51 2 12S6.49 2 12 2s10 4.04 10 9c0 3.31-2.69 6-6 6h-1.77c-.28 0-.5.22-.5.5 0 .12.05.23.13.33.41.47.64 1.06.64 1.67A2.5 2.5 0 0 1 12 22zm0-18c-4.41 0-8 3.59-8 8s3.59 8 8 8c.28 0 .5-.22.5-.5a.54.54 0 0 0-.14-.35c-.41-.46-.63-1.05-.63-1.65a2.5 2.5 0 0 1 2.5-2.5H16c2.21 0 4-1.79 4-4 0-3.86-3.59-7-8-7zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 10 6.5 10s1.5.67 1.5 1.5S7.33 13 6.5 13zm3-4C8.67 9 8 8.33 8 7.5S8.67 6 9.5 6s1.5.67 1.5 1.5S10.33 9 9.5 9zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 6 14.5 6s1.5.67 1.5 1.5S15.33 9 14.5 9zm3 4c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                            </svg>
+                        </span>
+                        Visualization Options
+                    </h3>
+                    <div class="feature-content">
+                        <div class="feature-showcase">
+                            <div class="feature-showcase-card">
+                                <h4>Scientific Colormaps</h4>
+                                <p>
+                                    16+ built-in colormaps optimized for scientific visualization, plus support for custom 
+                                    colormap files. Each colormap is designed to represent continuous data with perceptual uniformity.
+                                </p>
+                                <div class="colormap-showcase">
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #440154 0%, #3b528b 25%, #21918c 50%, #5ec962 75%, #fde725 100%);">
+                                        <span class="colormap-preview-label">Viridis</span>
+                                    </div>
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000004 0%, #420a68 20%, #932667 40%, #dd513a 60%, #fca50a 80%, #fcfdbf 100%);">
+                                        <span class="colormap-preview-label">Magma</span>
+                                    </div>
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000004 0%, #420a68 20%, #932667 40%, #dd513a 60%, #fca50a 80%, #fcffa4 100%);">
+                                        <span class="colormap-preview-label">Inferno</span>
+                                    </div>
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #0d0887 0%, #6a00a8 20%, #b12a90 40%, #e16462 60%, #fca636 80%, #f0f921 100%);">
+                                        <span class="colormap-preview-label">Plasma</span>
+                                    </div>
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000000 0%, #4296FA 50%, #ffffff 100%);">
+                                        <span class="colormap-preview-label">Lenia</span>
+                                    </div>
+                                    <!-- Cabry: black → purple → blue → cyan → green → yellow → orange → red → magenta → light cyan -->
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000000 0%, #270045 8%, #00007f 16%, #0080df 24%, #00a860 32%, #00b000 40%, #40d800 48%, #ffff00 56%, #ff8000 64%, #ff0000 72%, #c000c0 80%, #8080df 88%, #cce6e6 100%);">
+                                        <span class="colormap-preview-label">Cabry</span>
+                                    </div>
+                                    <!-- Gaga: black → orange/brown → dark green → cyan/teal → magenta → pink → white -->
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000000 0%, #2a2600 10%, #005345 20%, #007c6d 30%, #007d7e 40%, #640069 50%, #b50080 60%, #f300cd 70%, #ff32f3 80%, #ff80fc 90%, #fdfdfd 100%);">
+                                        <span class="colormap-preview-label">Gaga</span>
+                                    </div>
+                                    <!-- Doly: black → purple → blue-violet → teal → lighter purple → gray -->
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000000 0%, #3d2444 10%, #6a5575 20%, #6e5590 30%, #5555b0 40%, #6666c4 50%, #5588b0 55%, #6090a0 60%, #7098a0 70%, #80a8a0 80%, #bbc8c8 100%);">
+                                        <span class="colormap-preview-label">Doly</span>
+                                    </div>
+                                    <!-- Dolydark: dark → deep purple → teal → cyan → blue-violet → pink → light -->
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #000000 0%, #240041 10%, #3c0c60 20%, #2e2068 28%, #003c7c 36%, #004060 44%, #0055c0 52%, #0060de 60%, #4080df 70%, #60a0e0 80%, #cce6e6 100%);">
+                                        <span class="colormap-preview-label">Dolydark</span>
+                                    </div>
+                                    <!-- Dolymiddle: muted purple → dark → teal-ish → pink/magenta → light -->
+                                    <div class="colormap-preview" style="background: linear-gradient(90deg, #261037 0%, #200838 10%, #1f1552 18%, #162060 26%, #103865 34%, #285050 42%, #306530 50%, #608560 58%, #8080a0 66%, #a060a0 74%, #c080de 82%, #cce6e6 100%);">
+                                        <span class="colormap-preview-label">Dolymiddle</span>
+                                    </div>
+                                </div>
+                                <div class="feature-stat-row">
+                                    <div class="feature-stat">
+                                        <span class="feature-stat-value">16+</span>
+                                        <span class="feature-stat-label">Built-in Maps</span>
+                                    </div>
+                                    <div class="feature-stat">
+                                        <span class="feature-stat-value">∞</span>
+                                        <span class="feature-stat-label">Custom Support</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="feature-showcase-card">
+                                <h4>Display Modes</h4>
+                                <p>
+                                    Multiple visualization modes reveal different aspects of the simulation dynamics, 
+                                    from raw state values to computed fields and analysis overlays.
+                                </p>
+                                <ul class="feature-list">
+                                    <li><strong>World View:</strong> Standard simulation display with colormap</li>
+                                    <li><strong>Kernel Overlay:</strong> Visualize the convolution kernel shape</li>
+                                    <li><strong>Growth Field:</strong> Show growth function output values</li>
+                                    <li><strong>Neighbor Sums:</strong> Display neighborhood potential</li>
+                                    <li><strong>Delta View:</strong> Highlight areas of active change</li>
+                                    <li><strong>Vector Field:</strong> Movement direction visualization</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <h4>Real-time Adjustment Controls</h4>
+                        <div class="ui-features-grid">
+                            <div class="ui-feature">
+                                <h5>Color Manipulation</h5>
+                                <p>Hue shift, saturation, range/power curves, and offset controls for fine-tuning appearance.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Blend Modes</h5>
+                                <p>7 multichannel blend modes for combining RGB channel data in different ways.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Boundary Styles</h5>
+                                <p>5 boundary visualization styles including fade, highlight, and contour options.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-section">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h7l-2 3v1h8v-1l-2-3h7c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 12H3V4h18v10z"/>
+                            </svg>
+                        </span>
+                        User Interface
+                    </h3>
+                    <div class="feature-content">
+                        <p>
+                            Built with <strong>Dear ImGui</strong>, the interface provides a professional, 
+                            desktop-native experience with detachable and resizable windows.
+                        </p>
+                        <div class="ui-features-grid">
+                            <div class="ui-feature">
+                                <h5>Preset Browser</h5>
+                                <p>Searchable browser with category filtering across 548+ species. Live preview with current colormap.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Grid Tools</h5>
+                                <p>Flip, rotate, clear. Multiple placement modes: center, corners, scatter, grid, random.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Brush System</h5>
+                                <p>Configurable brush size, strength, and stroke settings for manual editing.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Wall Editor</h5>
+                                <p>Create boundaries and obstacles with various wall types.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Infinite World</h5>
+                                <p>Chunk-based navigation for exploring unlimited space.</p>
+                            </div>
+                            <div class="ui-feature">
+                                <h5>Keyboard Navigation</h5>
+                                <p>Full Tab/Shift+Tab traversal with visible focus indicators.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-section">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                            </svg>
+                        </span>
+                        Analysis & Monitoring
+                    </h3>
+                    <div class="feature-content">
+                        <div class="analysis-features">
+                            <div class="analysis-item">
+                                <h5>Live Metrics</h5>
+                                <ul>
+                                    <li>Mass (total cell value)</li>
+                                    <li>Alive cell count</li>
+                                    <li>Centroid position</li>
+                                    <li>Speed and direction</li>
+                                </ul>
+                            </div>
+                            <div class="analysis-item">
+                                <h5>Pattern Detection</h5>
+                                <ul>
+                                    <li>Periodic behavior detection</li>
+                                    <li>Stability monitoring</li>
+                                    <li>Auto-pause on extinction</li>
+                                    <li>Auto-pause on stability</li>
+                                </ul>
+                            </div>
+                            <div class="analysis-item">
+                                <h5>Performance Stats</h5>
+                                <ul>
+                                    <li>FPS counter</li>
+                                    <li>Frame time statistics</li>
+                                    <li>Throughput (Gcells/s)</li>
+                                    <li>Efficiency rating</li>
+                                </ul>
+                            </div>
+                            <div class="analysis-item">
+                                <h5>Professional Graphs</h5>
+                                <ul>
+                                    <li>Labeled axes</li>
+                                    <li>Tick marks</li>
+                                    <li>Grid lines</li>
+                                    <li>Real-time updates</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Supported Grid Sizes -->
+                <div class="features-section grid-sizes-feature">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M3 3v18h18V3H3zm8 16H5v-6h6v6zm0-8H5V5h6v6zm8 8h-6v-6h6v6zm0-8h-6V5h6v6z"/>
+                            </svg>
+                        </span>
+                        Supported Grid Sizes
+                    </h3>
+                    <div class="feature-content">
+                        <p>Multiple resolution presets optimized for different GPU capabilities and performance requirements.</p>
+                        <div class="grid-sizes-grid">
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">128×128</div>
+                                <div class="grid-size-label">Tiny</div>
+                                <div class="grid-size-desc">16K cells • Minimal load</div>
+                            </div>
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">256×256</div>
+                                <div class="grid-size-label">Small</div>
+                                <div class="grid-size-desc">65K cells • Fast iteration</div>
+                            </div>
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">512×512</div>
+                                <div class="grid-size-label">Medium</div>
+                                <div class="grid-size-desc">262K cells • Balanced</div>
+                            </div>
+                            <div class="grid-size-card default">
+                                <div class="grid-size-value">1024×1024</div>
+                                <div class="grid-size-label">Default</div>
+                                <div class="grid-size-desc">1M cells • Recommended</div>
+                            </div>
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">2048×2048</div>
+                                <div class="grid-size-label">Large</div>
+                                <div class="grid-size-desc">4M cells • High detail</div>
+                            </div>
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">4096×4096</div>
+                                <div class="grid-size-label">Huge</div>
+                                <div class="grid-size-desc">16M cells • GPU intensive</div>
+                            </div>
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">8192×8192</div>
+                                <div class="grid-size-label">Extreme</div>
+                                <div class="grid-size-desc">67M cells • High-end GPUs</div>
+                            </div>
+                            <div class="grid-size-card">
+                                <div class="grid-size-value">16384×16384</div>
+                                <div class="grid-size-label">Max</div>
+                                <div class="grid-size-desc">268M cells • Research</div>
+                            </div>
+                        </div>
+                        <div class="grid-info-note">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                            </svg>
+                            <span>Grid size can be changed at runtime. Larger grids require more VRAM and reduce frame rate.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Keyboard Controls -->
+                <div class="features-section keyboard-controls-feature">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/>
+                            </svg>
+                        </span>
+                        Keyboard Shortcuts
+                    </h3>
+                    <div class="feature-content">
+                        <p>Full keyboard control for efficient workflow and accessibility.</p>
+                        <div class="keyboard-grid">
+                            <div class="key-item">
+                                <kbd>Space</kbd>
+                                <span>Play/Pause simulation</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>R</kbd>
+                                <span>Reset / Randomize</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>C</kbd>
+                                <span>Clear grid</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>S</kbd>
+                                <span>Take screenshot</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Tab</kbd>
+                                <span>Toggle UI visibility</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>F11</kbd>
+                                <span>Toggle fullscreen</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Esc</kbd>
+                                <span>Close dialogs / Exit fullscreen</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Home</kbd>
+                                <span>Reset view to center</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>+</kbd> / <kbd>-</kbd>
+                                <span>Zoom in / out</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>1</kbd> - <kbd>5</kbd>
+                                <span>Simulation speed (1× to 20×)</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Arrow Keys</kbd>
+                                <span>Pan view</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Scroll Wheel</kbd>
+                                <span>Zoom at cursor</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Shift</kbd> + <kbd>Tab</kbd>
+                                <span>Reverse tab navigation</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Ctrl</kbd> + <kbd>S</kbd>
+                                <span>Save state</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Ctrl</kbd> + <kbd>O</kbd>
+                                <span>Load state</span>
+                            </div>
+                            <div class="key-item">
+                                <kbd>Ctrl</kbd> + <kbd>Z</kbd>
+                                <span>Undo</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="features-section">
+                    <h3 class="subsection-title">
+                        <span class="feature-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                                <path d="M12 2c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm9 7h-6v13h-2v-6h-2v6H9V9H3V7h18v2z"/>
+                            </svg>
+                        </span>
+                        Accessibility
+                    </h3>
+                    <div class="feature-content">
+                        <div class="accessibility-grid">
+                            <div class="access-feature">
+                                <strong>UI Scale:</strong> Adjustable 0.75x to 3.0x for high-DPI displays
+                            </div>
+                            <div class="access-feature">
+                                <strong>Font Size:</strong> Configurable 10pt to 32pt
+                            </div>
+                            <div class="access-feature">
+                                <strong>High Contrast:</strong> Mode for visual impairments
+                            </div>
+                            <div class="access-feature">
+                                <strong>Reduce Motion:</strong> Minimize animations
+                            </div>
+                            <div class="access-feature">
+                                <strong>Keyboard Nav:</strong> Full Tab traversal support
+                            </div>
+                            <div class="access-feature">
+                                <strong>Multi-language:</strong> English and French (Français)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Installation Tab -->
+        <section id="installation" class="tab-content" aria-labelledby="installation-tab">
+            <div class="content-container">
+                <h2 class="page-title">Installation & Usage</h2>
+
+                <div class="requirements-section">
+                    <h3 class="subsection-title">Requirements</h3>
+                    <div class="requirements-grid">
+                        <div class="requirement-card">
+                            <h4>Build Requirements</h4>
+                            <ul>
+                                <li><strong>Compiler:</strong> MinGW-w64 (MSYS2 UCRT64) with GCC 13+ or GCC 15 recommended</li>
+                                <li><strong>Graphics:</strong> OpenGL 4.5 compatible GPU (4.6 preferred)</li>
+                                <li><strong>OS:</strong> Windows 10/11</li>
+                            </ul>
+                        </div>
+                        <div class="requirement-card">
+                            <h4>Runtime Requirements</h4>
+                            <ul>
+                                <li>OpenGL 4.5+ capable graphics card</li>
+                                <li>GPU with compute shader support</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="install-section">
+                    <h3 class="subsection-title">Building from Source</h3>
+                    
+                    <div class="build-method">
+                        <h4>Quick Build (Recommended)</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">batch</span>
+                                <button class="copy-btn" data-copy=".\build_windows.bat" aria-label="Copy command">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <pre><code>.\build_windows.bat</code></pre>
+                        </div>
+                        <p class="build-note">
+                            The build script automatically detects MSYS2/MinGW-w64 installation, downloads required libraries 
+                            (GLFW, GLAD, GLM, Dear ImGui), compiles with optimizations (-O3, LTO), and links statically.
+                        </p>
+                    </div>
+
+                    <div class="build-method">
+                        <h4>Build Options</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">batch</span>
+                            </div>
+                            <pre><code>.\build_windows.bat --clean      # Clean rebuild
+.\build_windows.bat --no-pause   # No pause at end (for scripts)
+.\build_windows.bat --help       # Show options</code></pre>
+                        </div>
+                    </div>
+
+                    <div class="build-method">
+                        <h4>Manual Build with Make</h4>
+                        <div class="code-block">
+                            <div class="code-header">
+                                <span class="code-lang">batch</span>
+                                <button class="copy-btn" data-copy="mingw32-make -j8" aria-label="Copy command">
+                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <pre><code>mingw32-make -j8</code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="usage-section">
+                    <h3 class="subsection-title">Running the Application</h3>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <span class="code-lang">path</span>
+                        </div>
+                        <pre><code>bin\lenia.exe</code></pre>
+                    </div>
+                </div>
+
+                <div class="controls-section">
+                    <h3 class="subsection-title">Keyboard Controls</h3>
+                    <div class="controls-table-container">
+                        <table class="controls-table">
+                            <thead>
+                                <tr>
+                                    <th>Key</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><kbd>Space</kbd></td>
+                                    <td>Pause/Resume simulation</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>S</kbd></td>
+                                    <td>Single step (hold for continuous stepping)</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Shift</kbd> + <kbd>S</kbd></td>
+                                    <td>Fast continuous stepping</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>R</kbd></td>
+                                    <td>Reset with current preset</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>C</kbd></td>
+                                    <td>Clear grid</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Tab</kbd></td>
+                                    <td>Toggle UI visibility</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>F11</kbd></td>
+                                    <td>Toggle fullscreen mode</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Escape</kbd></td>
+                                    <td>Close dialogs / Exit fullscreen</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Home</kbd></td>
+                                    <td>Reset view to center</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>+</kbd> / <kbd>-</kbd></td>
+                                    <td>Zoom in / out</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>1</kbd> - <kbd>5</kbd></td>
+                                    <td>Set simulation speed (1× to 20×)</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Arrow Keys</kbd></td>
+                                    <td>Pan view</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Scroll</kbd></td>
+                                    <td>Zoom in/out</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>Middle Mouse</kbd></td>
+                                    <td>Pan view (drag)</td>
+                                </tr>
+                                <tr>
+                                    <td><kbd>F</kbd></td>
+                                    <td>Fit view to grid</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="getting-started-section">
+                    <h3 class="subsection-title">Getting Started</h3>
+                    <ol class="steps-list">
+                        <li>
+                            <span class="step-number">1</span>
+                            <span class="step-text">Launch <code>bin/lenia.exe</code></span>
+                        </li>
+                        <li>
+                            <span class="step-number">2</span>
+                            <span class="step-text">Browse presets in the <strong>Presets</strong> section</span>
+                        </li>
+                        <li>
+                            <span class="step-number">3</span>
+                            <span class="step-text">Select a category (e.g., "Multichannel") and choose a species</span>
+                        </li>
+                        <li>
+                            <span class="step-number">4</span>
+                            <span class="step-text">Press <kbd>Space</kbd> to start the simulation</span>
+                        </li>
+                        <li>
+                            <span class="step-number">5</span>
+                            <span class="step-text">Adjust parameters in real-time using the UI panels</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <div class="grid-sizes-section">
+                    <h3 class="subsection-title">Supported Grid Sizes</h3>
+                    <div class="grid-info">
+                        <div class="grid-stat">
+                            <span class="grid-label">Minimum</span>
+                            <span class="grid-value">64×64</span>
+                        </div>
+                        <div class="grid-stat">
+                            <span class="grid-label">Default</span>
+                            <span class="grid-value">350×350</span>
+                        </div>
+                        <div class="grid-stat">
+                            <span class="grid-label">Maximum</span>
+                            <span class="grid-value">2048×2048</span>
+                            <span class="grid-note">(GPU memory dependent)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- About Tab -->
+        <section id="about" class="tab-content" aria-labelledby="about-tab">
+            <div class="content-container">
+                <h2 class="page-title">About & Origins</h2>
+
+                <div class="about-section">
+                    <h3 class="subsection-title">Credits & Acknowledgments</h3>
+                    <div class="credit-card primary">
+                        <div class="credit-icon">
+                            <svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor">
+                                <path d="M13.5 2c-5.629 0-10.212 4.436-10.475 10h-3.025l4.537 5.917 4.463-5.917h-2.975c.26-3.902 3.508-7 7.475-7 4.136 0 7.5 3.364 7.5 7.5s-3.364 7.5-7.5 7.5c-2.381 0-4.502-1.119-5.876-2.854l-1.847 2.449c1.919 2.088 4.664 3.405 7.723 3.405 5.799 0 10.5-4.701 10.5-10.5s-4.701-10.5-10.5-10.5z"/>
+                            </svg>
+                        </div>
+                        <div class="credit-content">
+                            <h4>Bert Wang-Chak Chan</h4>
+                            <p>
+                                Creator and discoverer of Lenia. His groundbreaking research into continuous cellular automata 
+                                opened new frontiers in artificial life research, demonstrating how remarkably life-like behaviors 
+                                can emerge from simple mathematical rules.
+                            </p>
+                            <a href="https://arxiv.org/abs/1812.05433" target="_blank" rel="noopener noreferrer" class="credit-link">
+                                Original Paper (arXiv)
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <h3 class="subsection-title">Inspiration</h3>
+                    <div class="inspiration-content">
+                        <p>
+                            This project was inspired by the fascinating YouTube video by <strong>David Louapre</strong> 
+                            on his channel <em>Science Étonnante</em>, which explored Conway's Game of Life and its extensions 
+                            into continuous domains. That video sparked a journey from discrete cellular automata to the 
+                            continuous, fluid world of Lenia.
+                        </p>
+                        <div class="inspiration-quote">
+                            <blockquote>
+                                "The transition from discrete to continuous opens up an infinite parameter space 
+                                where countless life-like creatures await discovery."
+                            </blockquote>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <h3 class="subsection-title">Development History</h3>
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-date">June 2024</div>
+                            <div class="timeline-content">
+                                <h4>First Attempt: Lenia-Simulation</h4>
+                                <p>
+                                    A Python notebook created to explore and understand different Lenia species. 
+                                    This initial exploration helped build intuition for the parameter space and 
+                                    the behavior of various creatures.
+                                </p>
+                                <a href="https://github.com/Wartets/Lenia-Simulation" target="_blank" rel="noopener noreferrer" class="timeline-link">
+                                    View Repository →
+                                </a>
+                            </div>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-date">July 2025</div>
+                            <div class="timeline-content">
+                                <h4>Second Attempt: Lenia-Web</h4>
+                                <p>
+                                    A web-based interactive version that made Lenia accessible through the browser. 
+                                    While highly interactive and accessible, performance limitations of the browser 
+                                    environment prevented achieving the desired simulation speeds for larger grids.
+                                </p>
+                                <a href="https://github.com/Wartets/Lenia-Web" target="_blank" rel="noopener noreferrer" class="timeline-link">
+                                    View Repository →
+                                </a>
+                            </div>
+                        </div>
+                        <div class="timeline-item current">
+                            <div class="timeline-marker"></div>
+                            <div class="timeline-date">2026</div>
+                            <div class="timeline-content">
+                                <h4>Current: Lenia C++</h4>
+                                <p>
+                                    This C++ implementation was built to achieve maximum performance through hardware 
+                                    acceleration with OpenGL compute shaders. It serves dual purposes: providing a 
+                                    desktop-native experience with direct GPU interaction, and as a personal project 
+                                    to master C++ optimization, memory management, and graphics programming.
+                                </p>
+                                <p>
+                                    The result is a high-performance simulator capable of running complex multichannel 
+                                    simulations at 60+ FPS with real-time parameter adjustment, something not achievable 
+                                    with interpreted languages or browser-based implementations.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <h3 class="subsection-title">Author</h3>
+                    <div class="author-card">
+                        <div class="author-avatar">
+                            <span class="avatar-placeholder">CBR</span>
+                        </div>
+                        <div class="author-info">
+                            <h4>Colin Bossu Réaubourg</h4>
+                            <p class="author-handle">@Wartets</p>
+                            <p class="author-bio">
+                                Developer with a passion for artificial life, simulation systems, and high-performance computing. 
+                                This project represents a journey through multiple programming paradigms and technologies, 
+                                from Python notebooks to web applications to native GPU-accelerated software.
+                            </p>
+                            <div class="author-links">
+                                <a href="https://wartets.github.io" target="_blank" rel="noopener noreferrer" class="author-link">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                                    </svg>
+                                    Portfolio
+                                </a>
+                                <a href="https://github.com/Wartets" target="_blank" rel="noopener noreferrer" class="author-link">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                                    </svg>
+                                    GitHub
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <h3 class="subsection-title">Libraries Used</h3>
+                    <div class="libraries-grid">
+                        <a href="https://www.glfw.org/" target="_blank" rel="noopener noreferrer" class="library-card">
+                            <h5>GLFW</h5>
+                            <p>Window and input handling</p>
+                        </a>
+                        <a href="https://glad.dav1d.de/" target="_blank" rel="noopener noreferrer" class="library-card">
+                            <h5>GLAD</h5>
+                            <p>OpenGL loader</p>
+                        </a>
+                        <a href="https://github.com/g-truc/glm" target="_blank" rel="noopener noreferrer" class="library-card">
+                            <h5>GLM</h5>
+                            <p>Mathematics library</p>
+                        </a>
+                        <a href="https://github.com/ocornut/imgui" target="_blank" rel="noopener noreferrer" class="library-card">
+                            <h5>Dear ImGui</h5>
+                            <p>Immediate mode GUI</p>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="about-section">
+                    <h3 class="subsection-title">License</h3>
+                    <div class="license-box">
+                        <p>
+                            This project is released under the <strong>MIT License</strong>.
+                        </p>
+                        <p class="license-text">
+                            Permission is hereby granted, free of charge, to any person obtaining a copy of this software 
+                            and associated documentation files, to deal in the Software without restriction, including 
+                            without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, 
+                            and/or sell copies of the Software.
+                        </p>
+                        <a href="https://github.com/Wartets/Lenia/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="license-link">
+                            View Full License →
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-container">
+            <div class="footer-left">
+                <span class="footer-logo">◉ Lenia</span>
+                <span class="footer-version">v1.1.0</span>
+            </div>
+            <div class="footer-center">
+                <p>© 2024-2026 Colin Bossu Réaubourg (Wartets)</p>
+            </div>
+            <div class="footer-right">
+                <a href="https://github.com/Wartets/Lenia" target="_blank" rel="noopener noreferrer">GitHub</a>
+                <span class="footer-sep">•</span>
+                <a href="https://github.com/Wartets/Lenia/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" aria-label="Back to top" title="Back to top">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>
+        </svg>
+    </button>
+
+    <script src="main.js"></script>
+</body>
+</html>
